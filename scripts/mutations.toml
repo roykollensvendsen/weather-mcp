@@ -50,3 +50,9 @@ name = "a shared name asks which one"
 file = "src/weather_mcp/places.py"
 find = 'if len\(by_county\) > 1:'
 replace = 'if False:'
+
+[[rule]]
+name = "a slowed answer says how old it is"
+file = "src/weather_mcp/weather.py"
+find = 'if answer.slowed:'
+replace = 'if False:'

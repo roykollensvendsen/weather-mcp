@@ -12,6 +12,7 @@ license-files = ["LICENSE"]
 dynamic = ["version"]
 dependencies = [
     "httpx>=0.28",
+    "mcp>=2.3",
 ]
 
 [project.scripts]
