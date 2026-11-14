@@ -105,6 +105,8 @@ class Weather:
         if found.place is not None:
             return found.place
         if found.choices:
-            name = place.strip().partition(" i ")[0]
-            return f"Which {name}: in {' or '.join(found.choices)}?"
+            # Only a name looked up whole can be shared: one with a county names one county.
+            *rest, last = found.choices
+            counties = f"{', '.join(rest)} or {last}" if rest else last
+            return f"Which {place.strip()}: in {counties}?"
         return f"I only know places in Norway so far, and I can't find {place}. Yr's app has the rest."

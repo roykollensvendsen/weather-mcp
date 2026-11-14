@@ -20,7 +20,7 @@ import httpx
 START = dt.datetime(2026, 11, 14, 12, 0, tzinfo=dt.UTC)
 LAST_MODIFIED = "Sat, 14 Nov 2026 11:30:00 GMT"
 FORECAST_PATH = "/weatherapi/locationforecast/2.0/compact"
-PLACES_PATH = "/stedsnavn/v1/navn"
+PLACES_PATH = "/stedsnavn/v1/sted"
 
 
 @dataclass
@@ -59,29 +59,40 @@ def forecast(temperature: float = 7.0, symbol: str = "cloudy", rain: float = 0.0
     }
 
 
+#: Kartverket's type codes, which its /sted filter takes (read 2026-11-15).
+KIND_CODES = {"By": "by", "Tettsted": "tettsted", "Tettbebyggelse": "tettbebyggelse", "Gard": "gard"}
+
+
 def place(name: str, kind: str, county: str, lat: float, lon: float) -> dict[str, object]:
-    """One hit in Kartverket's /navn answer, in its own field names."""
+    """One hit in Kartverket's /sted answer, in its own field names."""
     return {
-        "skrivemåte": name,
+        "stedsnavn": [{"skrivemåte": name, "navnestatus": "hovednavn"}],
         "navneobjekttype": kind,
-        "representasjonspunkt": {"øst": lon, "nord": lat, "koordsys": 4258},
+        "representasjonspunkt": {"øst": lon, "nord": lat},
         "fylker": [{"fylkesnavn": county}],
-        "kommuner": [{"kommunenavn": county + " kommune"}],
+        "kommuner": [{"kommunenavn": county.split(" - ", maxsplit=1)[0] + " kommune"}],
     }
 
 
-#: Made-up places. "Moen" is shared, as many real Norwegian names are.
+#: Made-up places. "Moen" is shared, as many real Norwegian names are. Some
+#: counties have their name in two languages, as several real ones do.
 PLACES: dict[str, list[dict[str, object]]] = {
     "Testby": [place("Testby", "By", "Fjellfylke", 61.00412, 9.00377)],
     "Moen": [
         place("Moen", "Tettsted", "Fjellfylke", 61.01, 9.01),
         place("Moen", "Tettsted", "Kystfylke", 61.02, 9.02),
         place("Moen", "Gard", "Dalfylke", 61.03, 9.03),
+        place("Moen", "Tettbebyggelse", "Nordfylke - Davvifylke", 61.06, 9.06),
     ],
     "Haugen": [
         place("Haugen", "Gard", "Fjellfylke", 61.04, 9.04),
         place("Haugen", "By", "Dalfylke", 61.05, 9.05),
     ],
+    # More farms than fit on one page, ahead of the one town.
+    "Lia": [place("Lia", "Gard", "Dalfylke", 61.07, 9.07)] * 30
+    + [place("Lia", "By", "Kystfylke", 61.08, 9.08)],
+    # A town whose own name says "i", as real ones do.
+    "Strand i Dal": [place("Strand i Dal", "By", "Kystfylke", 61.09, 9.09)],
 }
 
 
@@ -134,5 +145,9 @@ class FakeApi:
     def _places(self, request: httpx.Request) -> httpx.Response:
         name = request.url.params.get("sok", "")
         hits = PLACES.get(name, [])
-        body = {"metadata": {"totaltAntallTreff": len(hits)}, "navn": hits}
+        kinds = request.url.params.get_list("navneobjekttype")
+        if kinds:
+            hits = [h for h in hits if KIND_CODES.get(str(h["navneobjekttype"])) in kinds]
+        page = int(request.url.params.get("treffPerSide", "10"))
+        body = {"metadata": {"totaltAntallTreff": len(hits)}, "navn": hits[:page]}
         return httpx.Response(200, content=json.dumps(body).encode())
