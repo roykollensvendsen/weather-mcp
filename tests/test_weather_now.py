@@ -77,7 +77,7 @@ def test_a_named_place_gives_its_weather():
 def test_a_shared_name_is_asked_back():
     answer = ask("Moen")
     assert not answer["success"]
-    assert answer["say"] == "Which Moen: in Fjellfylke or Kystfylke?"
+    assert answer["say"] == "Which Moen: in Fjellfylke, Kystfylke or Nordfylke?"
 
 
 def test_an_unknown_place_says_only_norway_is_known():

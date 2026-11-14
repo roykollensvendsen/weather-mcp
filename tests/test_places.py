@@ -35,7 +35,25 @@ def test_a_named_place_is_rounded_to_two_decimals():
 def test_a_shared_name_asks_which_one():
     found = find("Moen")
     assert found.place is None
-    assert found.choices == ["Fjellfylke", "Kystfylke"]
+    assert found.choices == ["Fjellfylke", "Kystfylke", "Nordfylke"]
+
+
+def test_only_settled_places_are_asked_for():
+    found = find("Lia")
+    assert found.place is not None
+    assert (found.place.lat, found.place.lon) == (61.08, 9.08)
+
+
+def test_a_name_with_i_in_it_is_found_whole():
+    found = find("Strand i Dal")
+    assert found.place is not None
+    assert found.place.name == "Strand i Dal"
+
+
+def test_a_county_named_in_one_of_its_languages_matches():
+    found = find("Moen i Nordfylke")
+    assert found.place is not None
+    assert (found.place.lat, found.place.lon) == (61.06, 9.06)
 
 
 def test_a_town_wins_over_a_farm_of_the_same_name():
