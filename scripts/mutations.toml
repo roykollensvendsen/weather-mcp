@@ -44,3 +44,9 @@ name = "a 429 answers from the cache"
 file = "src/weather_mcp/cache.py"
 find = 'if kept is None:'
 replace = 'if True:'
+
+[[rule]]
+name = "a shared name asks which one"
+file = "src/weather_mcp/places.py"
+find = 'if len\(by_county\) > 1:'
+replace = 'if False:'
