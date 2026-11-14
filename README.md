@@ -8,13 +8,18 @@ name is shared. The answer is one short sentence to read aloud.
 
 Data from MET Norway (NLOD 2.0 and CC BY 4.0), and place names from Kartverket (CC BY 4.0).
 
+MET's [terms of service](https://docs.api.met.no/doc/TermsOfService) ask a person to read
+and accept them before use. The owner of this repository accepted them on 2026-11-14.
+Anyone running their own copy must read and accept them too.
+
 ## Set up
 
 MET refuses requests that do not say who is asking. So the config must name a contact,
-and there is no default. Write `~/.config/weather-mcp/config.toml`:
+and there is no default. The server refuses to start without one. Use your own fork's
+URL or your own website, not this one. Write `~/.config/weather-mcp/config.toml`:
 
 ```toml
-contact = "https://github.com/<you>/weather-mcp"
+contact = "https://github.com/roykollensvendsen/weather-mcp"
 
 [home]              # optional; rounded to 2 decimals, about 1 km
 name = "<the name you say>"
