@@ -14,3 +14,15 @@
 # file = "src/weather_mcp/somewhere.py"
 # find = 'if limit_exceeded:'
 # replace = 'if False:'
+
+[[rule]]
+name = "the contact has no default"
+file = "src/weather_mcp/config.py"
+find = 'if not contact:'
+replace = 'if False:'
+
+[[rule]]
+name = "home is rounded to two decimals"
+file = "src/weather_mcp/config.py"
+find = 'return round\(value, DECIMALS\)'
+replace = 'return value'
