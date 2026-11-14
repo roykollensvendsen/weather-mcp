@@ -2,11 +2,37 @@
 
 The weather in Norway by voice, from MET Norway's open data, as an MCP server and an optional claude-voice plugin.
 
-<!-- not run: there is nothing to run until the walking skeleton exists -->
-```bash
-# Replace this block with what weather-mcp actually does, as a ```console block
-# whose output is what the command really prints. The suite runs those blocks
-# and compares them, so an example here cannot quietly stop being true.
+It gives a voice session one tool so far, `weather_now(place?)`. With no place it answers
+for home. A place is a name in Norway, as spoken: "Bergen", or "Moen i Agder" when a
+name is shared. The answer is one short sentence to read aloud.
+
+Data from MET Norway (NLOD 2.0 and CC BY 4.0), and place names from Kartverket (CC BY 4.0).
+
+## Set up
+
+MET refuses requests that do not say who is asking. So the config must name a contact,
+and there is no default. Write `~/.config/weather-mcp/config.toml`:
+
+```toml
+contact = "https://github.com/<you>/weather-mcp"
+
+[home]              # optional; rounded to 2 decimals, about 1 km
+name = "<the name you say>"
+lat = 0.00
+lon = 0.00
+```
+
+Home stays in that file. It is never in this repository, its tests or its logs.
+
+Then start the server for a voice session:
+
+```console
+$ weather-mcp serve --help
+usage: weather-mcp serve [-h] [--config FILE]
+
+options:
+  -h, --help     show this help message and exit
+  --config FILE  the config file, if not the usual one
 ```
 
 ## The gates

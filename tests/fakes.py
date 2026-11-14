@@ -92,6 +92,8 @@ class FakeApi:
     clock: Clock = field(default_factory=Clock)
     body: dict[str, object] = field(default_factory=forecast)
     slow_down: bool = False
+    #: A status MET answers every forecast with, as when it is down.
+    broken: int | None = None
     expires_after_minutes: float = 30
     requests: list[httpx.Request] = field(default_factory=list)
 
@@ -117,6 +119,8 @@ class FakeApi:
             value = request.url.params.get(key, "")
             if "." in value and len(value.split(".")[1]) > 4:
                 return httpx.Response(403, text="Too many decimals")
+        if self.broken is not None:
+            return httpx.Response(self.broken)
         if self.slow_down:
             return httpx.Response(429)
         expires = email.utils.format_datetime(
