@@ -26,3 +26,21 @@ name = "home is rounded to two decimals"
 file = "src/weather_mcp/config.py"
 find = 'return round\(value, DECIMALS\)'
 replace = 'return value'
+
+[[rule]]
+name = "nothing is asked again before it expires"
+file = "src/weather_mcp/cache.py"
+find = 'if kept is not None and now < kept.expires:'
+replace = 'if False:'
+
+[[rule]]
+name = "a repeat after expiry asks with if modified since"
+file = "src/weather_mcp/cache.py"
+find = 'if kept is not None and kept.last_modified:'
+replace = 'if False:'
+
+[[rule]]
+name = "a 429 answers from the cache"
+file = "src/weather_mcp/cache.py"
+find = 'if kept is None:'
+replace = 'if True:'

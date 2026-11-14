@@ -11,4 +11,5 @@ read whenever a decision record is written and when a phase ends.
 | A code of conduct and issue templates | A second contributor, or the first outside issue | Boilerplate answering questions nobody has asked |
 | A release workflow and publishing | The first release someone outside will install | A published name is claimed and a published version cannot be reused |
 | `CODEOWNERS` | A second person who reviews | It would name one person as the owner of everything |
+| A forecast cache kept on disk across restarts | The server restarting more than once per half hour in normal use | A restart costs one request per place, far under MET's limit |
 | `pre-commit` as a requirement rather than an option | A second contributor | The gates run in CI, and a hook one person installs is a hook one person maintains |
