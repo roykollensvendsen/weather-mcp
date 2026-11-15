@@ -58,3 +58,22 @@ def test_the_config_lives_under_the_users_config_folder(monkeypatch, tmp_path):
     assert config_path() == tmp_path / "weather-mcp" / "config.toml"
     monkeypatch.delenv("XDG_CONFIG_HOME")
     assert config_path() == pathlib.Path.home() / ".config" / "weather-mcp" / "config.toml"
+
+
+def test_the_config_is_read_as_utf8_whatever_the_locale(tmp_path):
+    """The bridge starts the server with no LANG; a name like Tromsø must still read."""
+    import os  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+
+    path = write(tmp_path, 'contact = "x"\n[home]\nname = "Tromsø"\nlat = 61.0\nlon = 9.0\n')
+    env = {**os.environ, "LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0"}
+    code = (
+        "import pathlib, sys; from weather_mcp.config import load_config; "
+        "print(load_config(pathlib.Path(sys.argv[1])).home.name.encode())"
+    )
+    run = subprocess.run(
+        [sys.executable, "-c", code, str(path)], env=env, capture_output=True, text=True, check=False
+    )
+    assert run.returncode == 0, run.stderr
+    assert run.stdout.strip() == repr("Tromsø".encode())
