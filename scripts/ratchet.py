@@ -422,6 +422,9 @@ def stop_cleanly() -> None:
     """
 
     def stop(signum: int, _frame: object) -> None:
+        # RULE: a second stop cannot cut the ratchet cleanup short
+        for each in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+            signal.signal(each, signal.SIG_IGN)
         raise SystemExit(128 + signum)
 
     # RULE: a ratchet stopped from outside removes what it made
@@ -434,6 +437,10 @@ def copy_of(ref: str, copy: Path) -> None:
 
     A worktree would share every branch of this clone, so the base's own checks, such as
     its history scan, would read the branch under review.
+
+    `ref` must name a commit this clone has, such as a branch tip: it is fetched by its
+    sha, which a server only gives for a commit it advertises. `--depth 1` gives the copy
+    one commit of history, so a base measure that reads further back must deepen it.
     """
     sha = _run("git", "rev-parse", "--verify", f"{ref}^{{commit}}", cwd=ROOT)
     if sha.returncode:
