@@ -68,3 +68,9 @@ name = "a failure logs no coordinates"
 file = "src/weather_mcp/server.py"
 find = 'logging.getLogger\(__name__\).error\("weather_now failed: %s"'
 replace = 'logging.getLogger(__name__).exception("weather_now failed")'
+
+[[rule]]
+name = "every answer comes within the deadline"
+file = "src/weather_mcp/server.py"
+find = 'return await asyncio.wait_for\(weather.now\(place\), answer_within\)'
+replace = 'return await weather.now(place)'

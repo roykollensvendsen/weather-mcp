@@ -29,7 +29,8 @@ async def _serve(config: Config) -> None:  # pragma: no cover - runs until stdin
     from weather_mcp.weather import Weather  # noqa: PLC0415
 
     agent = user_agent(config)
-    async with httpx.AsyncClient(timeout=10) as http:
+    # Two requests in a row for a named place, each well inside the voice's deadline.
+    async with httpx.AsyncClient(timeout=5) as http:
         weather = Weather(config, CachedClient(http, agent), PlaceFinder(http, agent))
         await build_server(weather).run_stdio_async()
 
