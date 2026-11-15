@@ -155,3 +155,11 @@ def test_the_cache_folder_is_private(tmp_path):
     api, store = FakeApi(), tmp_path / "weather-mcp" / "forecasts.json"
     ask(api, store)
     assert stat.S_IMODE(store.parent.stat().st_mode) == 0o700
+
+
+def test_an_older_open_cache_folder_is_made_private(tmp_path):
+    api, store = FakeApi(), tmp_path / "weather-mcp" / "forecasts.json"
+    store.parent.mkdir(mode=0o755)
+    store.parent.chmod(0o755)
+    ask(api, store)
+    assert stat.S_IMODE(store.parent.stat().st_mode) == 0o700

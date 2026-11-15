@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import pathlib
+import stat
 import tempfile
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -243,7 +244,11 @@ class CachedClient:
     def _write(self, body: bytes) -> None:
         """Replace the file in one step, from a temporary file of this writer's own."""
         assert self._store is not None  # noqa: S101 - _save checked it
-        self._store.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        folder = self._store.parent
+        folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+        # mkdir's mode leaves an older folder as it was; only others' access is taken away.
+        # RULE: an older open cache folder is made private
+        folder.chmod(stat.S_IMODE(folder.stat().st_mode) & 0o700)
         fd, name = tempfile.mkstemp(dir=self._store.parent, prefix=".forecasts-", suffix=".part")
         part = pathlib.Path(name)
         try:
