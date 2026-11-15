@@ -33,6 +33,34 @@ Run them after the last edit, not before it. A file edited after the format
 gate ran will fail in continuous integration, which is the cheapest possible
 way to learn that the gates are not a ritual performed once.
 
+## The quality ratchet
+
+The code may get better or stay as it is, never worse unless a change says why.
+`scripts/ratchet.py` measures test coverage, the share of rules whose own test
+notices them switched off, the number of tests, lint and type errors, import
+cycles, imports that cross the layers, copied code, and the most tangled
+function in each module.
+
+The layers are two. The core reads the config, finds places and asks MET, and
+never imports MCP. The top, `server` and `cli`, puts it on the wire. A new
+module gets its layer in `layer()` in `scripts/ratchet.py`.
+
+`scripts/ratchet.py check` fails a change that makes any of them worse than
+main. Main's levels are measured by continuous integration after every merge
+and kept with that run, so a pull request never records them
+([ADR-WM-002](decisions/ADR-WM-002-main-keeps-the-quality-levels.md)). When
+main's levels for that commit are missing, the check measures the commit
+itself, which takes as long again. A change that must make a measure worse
+says so in its pull request, on a line of its own:
+
+<!-- not run: an example line in a pull request -->
+```
+Ratchet-Exception: coverage - the module it covered was deleted
+```
+
+The time budget is a limit, not a level: it is the one thing in `quality.json`,
+and it changes only by hand.
+
 ## How a change is made
 
 1. **Decide before you build.** A choice that costs more to reverse than to
