@@ -60,6 +60,9 @@ warn_unused_configs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Each run's tmp_path folders are removed when it ends. pytest keeps the last three runs
+# by default, and the mutation check starts a run per rule; they filled the temp folder.
+tmp_path_retention_policy = "none"
 
 [tool.coverage.run]
 branch = true

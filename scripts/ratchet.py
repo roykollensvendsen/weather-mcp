@@ -33,6 +33,7 @@ import ast
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -413,6 +414,21 @@ def base_levels(kept: Path | None, measure_base: Callable[[], dict[str, Any]]) -
     return measure_base()
 
 
+def stop_cleanly() -> None:
+    """Make a stop from outside, such as CI cancelling the job, unwind like Ctrl-C does.
+
+    Python ends at once on SIGTERM or SIGHUP, so no `finally` runs and the copy of main
+    is left in the temporary folder. Raised as SystemExit instead, every cleanup runs.
+    """
+
+    def stop(signum: int, _frame: object) -> None:
+        raise SystemExit(128 + signum)
+
+    # RULE: a ratchet stopped from outside removes what it made
+    for signum in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(signum, stop)
+
+
 def measure_at(ref: str) -> dict[str, Any]:
     """Measure `ref` in a copy of it, with this ratchet, so both sides are measured alike.
 
@@ -450,6 +466,7 @@ def main() -> int:
     parser.add_argument("--out", type=Path, help="where to write the levels measured now")
     parser.add_argument("--skip-mutation", action="store_true")
     args = parser.parse_args()
+    stop_cleanly()
     if args.action == "measure":
         now = measure()
         if args.out:
