@@ -305,8 +305,10 @@ def test_a_second_stop_cannot_cut_the_ratchet_cleanup_short():
     kept = {s: signal.getsignal(s) for s in stops}
     try:
         ratchet.stop_cleanly()
+        first = signal.getsignal(signal.SIGINT)  # GitHub's first stop
+        assert first is signal.getsignal(signal.SIGTERM), "SIGINT must unwind the same way"
         with pytest.raises(SystemExit):
-            signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+            first(signal.SIGINT, None)
         assert all(signal.getsignal(s) is signal.SIG_IGN for s in stops)
     finally:
         for s, handler in kept.items():

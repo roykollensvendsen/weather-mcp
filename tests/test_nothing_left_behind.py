@@ -118,10 +118,12 @@ def test_a_second_stop_cannot_cut_the_cleanup_short():
     spec = importlib.util.spec_from_file_location("conftest_under_test", ROOT / "tests/conftest.py")
     guards = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(guards)
+    for s in guards.STOPS:  # the run this test is in was set up by the same conftest
+        assert getattr(signal.getsignal(s), "__name__", "") == "_stopped", f"{s!r} would not unwind"
     kept = {s: signal.getsignal(s) for s in guards.STOPS}
     try:
         with pytest.raises(KeyboardInterrupt):
-            guards._stopped(signal.SIGTERM, None)  # noqa: SLF001
+            guards._stopped(signal.SIGINT, None)  # noqa: SLF001 - GitHub's first stop
         assert all(signal.getsignal(s) is signal.SIG_IGN for s in guards.STOPS)
     finally:
         for s, handler in kept.items():

@@ -150,7 +150,7 @@ def sweep_dead_runs(temp: pathlib.Path) -> None:
             remove(path)
 
 
-#: The stops from outside that end a run like Ctrl-C, and the one that already does.
+#: The stops that end a run like Ctrl-C. GitHub cancels with SIGINT first, then SIGTERM.
 STOPS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
 
 
@@ -164,7 +164,7 @@ def _stopped(_signum: int, _frame: object) -> None:
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config: pytest.Config) -> None:
-    for signum in (signal.SIGTERM, signal.SIGHUP):
+    for signum in STOPS:
         signal.signal(signum, _stopped)
     if config.option.basetemp:  # a run told where to keep them keeps them there
         return

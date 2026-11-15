@@ -428,7 +428,7 @@ def stop_cleanly() -> None:
         raise SystemExit(128 + signum)
 
     # RULE: a ratchet stopped from outside removes what it made
-    for signum in (signal.SIGTERM, signal.SIGHUP):
+    for signum in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
         signal.signal(signum, stop)
 
 
