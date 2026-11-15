@@ -31,6 +31,11 @@ ANSWER_WITHIN = 12.0
 SLOW = "MET is slow to answer just now. Ask again in a moment."
 
 
+#: The phone's position, as the voice sends it; both tools take it.
+Lat = Annotated[float | None, Field(description="The phone's latitude, if known.")]
+Lon = Annotated[float | None, Field(description="The phone's longitude, if known.")]
+Accuracy = Annotated[float | None, Field(description="How exact the phone's position is, in metres.")]
+
 #: A query string in a logged address: for MET it holds the point, home's or the phone's.
 QUERY = re.compile(r"\?[^\s\"']*")
 
@@ -98,11 +103,9 @@ def build_server(weather: Weather, *, answer_within: float = ANSWER_WITHIN) -> M
     )
     async def weather_now(
         place: str | None = None,
-        lat: Annotated[float | None, Field(description="The phone's latitude, if known.")] = None,
-        lon: Annotated[float | None, Field(description="The phone's longitude, if known.")] = None,
-        accuracy_m: Annotated[
-            float | None, Field(description="How exact the phone's position is, in metres.")
-        ] = None,
+        lat: Lat = None,
+        lon: Lon = None,
+        accuracy_m: Accuracy = None,
     ) -> dict[str, Any]:
         return await _within("weather_now", weather.now(place, lat=lat, lon=lon, accuracy_m=accuracy_m))
 
@@ -118,14 +121,12 @@ def build_server(weather: Weather, *, answer_within: float = ANSWER_WITHIN) -> M
             Literal["today", "tomorrow"], Field(description="The day asked about; tomorrow if not said.")
         ] = "tomorrow",
         place: str | None = None,
-        lat: Annotated[float | None, Field(description="The phone's latitude, if known.")] = None,
-        lon: Annotated[float | None, Field(description="The phone's longitude, if known.")] = None,
-        accuracy_m: Annotated[
-            float | None, Field(description="How exact the phone's position is, in metres.")
-        ] = None,
+        lat: Lat = None,
+        lon: Lon = None,
+        accuracy_m: Accuracy = None,
     ) -> dict[str, Any]:
         return await _within(
-            "weather_forecast", weather.forecast(day, place, lat=lat, lon=lon, accuracy_m=accuracy_m)
+            "weather_forecast", weather.forecast(place, day=day, lat=lat, lon=lon, accuracy_m=accuracy_m)
         )
 
     return server
