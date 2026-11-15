@@ -191,3 +191,21 @@ def repair():
 def test_a_rule_in_an_async_helper_repair_calls_is_found(real):
     """An `async def` helper runs switched off too, once repair() calls it."""
     assert _inside_repair(REPAIR_AWAITING_A_RULE, [], real) == ["an awaited repair is written whole"]
+
+
+def test_each_suite_run_removes_its_own_temporary_folder(monkeypatch, tmp_path):
+    """A switched-off rule can stop the suite cleaning up; the runner removes what each run made."""
+    runner = _runner(monkeypatch, tmp_path)
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen.update(kwargs)
+        made = pathlib.Path(kwargs["env"]["TMPDIR"])
+        (made / "left-by-a-mutant").write_text("x")
+        return subprocess.CompletedProcess(command, 0, stdout="1 passed\n", stderr="")
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    runner.run_suite()
+    used = pathlib.Path(seen["env"]["TMPDIR"])
+    assert used.name.startswith("mutate-run-")
+    assert not used.exists()

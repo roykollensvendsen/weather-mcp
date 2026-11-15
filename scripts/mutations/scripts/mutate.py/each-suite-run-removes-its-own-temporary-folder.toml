@@ -1,0 +1,5 @@
+[[rule]]
+name = "each suite run removes its own temporary folder"
+file = "scripts/mutate.py"
+find = '^        shutil\.rmtree\(own, ignore_errors=True\)$'
+replace = 'pass'
