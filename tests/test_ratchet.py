@@ -262,3 +262,36 @@ def test_the_mutation_tally_is_read_from_the_mutation_scripts_last_line():
     # A run that failed for any other reason is never a full score.
     assert ratchet.mutation_tally(full, returncode=1) == {"killed": 8, "total": 9}
     assert ratchet.mutation_tally("Traceback ...", returncode=1) == {"killed": 0, "total": 1}
+
+
+def test_the_base_is_measured_where_no_other_branch_can_be_seen(tmp_path, monkeypatch):
+    """Main's own checks, such as its history scan, must not read the branch under review."""
+    import subprocess  # noqa: PLC0415
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+
+    for args in (
+        ["init", "-q", "-b", "main"],
+        ["config", "user.email", "t@example.org"],
+        ["config", "user.name", "t"],
+    ):
+        git(*args)
+    (repo / "notes.txt").write_text("main\n")
+    git("add", "notes.txt")
+    git("commit", "-q", "-m", "main")
+    git("switch", "-q", "-c", "under-review")
+    (repo / "notes.txt").write_text("under review\n")
+    git("commit", "-q", "-am", "under review")
+    git("switch", "-q", "main")
+    monkeypatch.setattr(ratchet, "ROOT", repo)
+    copy = tmp_path / "base"
+    ratchet.copy_of("main", copy)
+    seen = subprocess.run(
+        ["git", "log", "--all", "--format=%s"], cwd=copy, check=True, capture_output=True, text=True
+    ).stdout
+    assert (copy / "notes.txt").read_text() == "main\n"
+    assert "under review" not in seen
