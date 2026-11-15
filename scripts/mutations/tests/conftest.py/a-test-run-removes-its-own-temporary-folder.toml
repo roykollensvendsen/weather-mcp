@@ -1,0 +1,5 @@
+[[rule]]
+name = "a test run removes its own temporary folder"
+file = "tests/conftest.py"
+find = '^        shutil\.rmtree\(own, ignore_errors=True\)$'
+replace = 'pass'

@@ -36,6 +36,8 @@ def _mutate():
 #: template, marks rules with no rows here yet; decisions/deferred.md says when.
 #: ratchet.py's rows and tests are tv-mcp's.
 OWN_SCRIPTS = tuple(ROOT / "scripts" / n for n in ("mutate.py", "private_data_scan.py", "ratchet.py"))
+#: The shared test setup holds rules too: what a whole test run may change or leave behind.
+OWN_SCRIPTS += (ROOT / "tests" / "conftest.py",)
 
 
 def marked_rules() -> set[str]:
