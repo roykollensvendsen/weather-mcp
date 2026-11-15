@@ -58,9 +58,10 @@ BLOCK = 6  # lines in a row that count as a copied block
 EXCEPTION = re.compile(r"^\s*ratchet-exception:\s*([a-z_]+)", re.IGNORECASE | re.MULTILINE)
 TALLY = re.compile(r"(\d+)/(\d+) rules turned off")
 #: The layers, lowest first. The core reads the config, finds places and asks MET, and
-#: knows nothing of MCP; only the top, the server and the command line, puts it on the wire.
+#: knows nothing of MCP; only the top, the server, the command line and the simulated
+#: server built from them, puts it on the wire.
 CORE = {"config", "cache", "places", "weather", "__init__", "_version"}
-TOP = {"server", "cli"}
+TOP = {"server", "cli", "simulated"}
 #: Which layers each layer may import from this package, and the outside packages it never may.
 ALLOWED = {
     "core": {"core"},
