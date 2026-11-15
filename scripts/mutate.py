@@ -24,8 +24,10 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 from typing import Any
 
@@ -179,14 +181,22 @@ def run_suite() -> tuple[int, list[str]]:
     # the wrong rule, so no bytecode is written at all.
     # RULE: two mutations never share a bytecode cache
     env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
-    r = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "--tb=no", "--color=no", "-p", "no:cacheprovider"],
-        capture_output=True,
-        text=True,
-        cwd=ROOT,
-        check=False,
-        env=env,
-    )
+    own = pathlib.Path(tempfile.mkdtemp(prefix="mutate-run-"))
+    env["TMPDIR"] = str(own)
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "pytest", "-q", "--tb=no", "--color=no", "-p", "no:cacheprovider"],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            check=False,
+            env=env,
+        )
+    finally:
+        # A switched-off rule can stop the suite cleaning up after itself, so each run
+        # gets a temporary folder of its own, and only that folder is removed.
+        # RULE: each suite run removes its own temporary folder
+        shutil.rmtree(own, ignore_errors=True)
     # --color=no covers the usual run; stripping covers a configuration that
     # turns colour back on, which would otherwise make every kill unattributable.
     # RULE: a coloured failure line is still attributed
