@@ -150,3 +150,14 @@ def test_every_answer_during_a_hold_off_is_marked_old(session):
     session.api.clock.advance(1)
     assert session.ask().slowed, "a forecast past its expiry must not come back as current"
     assert len(session.api.forecast_requests()) == 2
+
+
+def test_an_expiry_with_no_zone_is_read_as_utc():
+    s = Session(FakeApi(zoneless_expires=True))
+    try:
+        s.ask()
+        s.api.clock.advance(29)
+        s.ask()
+        assert len(s.api.forecast_requests()) == 1
+    finally:
+        s.close()

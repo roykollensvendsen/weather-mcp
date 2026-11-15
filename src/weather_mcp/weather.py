@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from weather_mcp.cache import SlowedDownError, UpstreamError
+from weather_mcp.cache import RefusedError, SlowedDownError, UpstreamError
 from weather_mcp.config import config_path
 
 if TYPE_CHECKING:
@@ -88,6 +88,11 @@ class Weather:
             answer = await self._cache.get_json(FORECAST, params)
         except SlowedDownError:
             return {"success": False, "say": HELD_OFF}
+        except RefusedError:
+            return {
+                "success": False,
+                "say": f"MET refused the request. Check the contact in {config_path()}.",
+            }
         except (UpstreamError, httpx.HTTPError):
             return {"success": False, "say": DOWN}
         return {"success": True, "say": _sentence(answer, where), "place": where.name}

@@ -123,6 +123,8 @@ class FakeApi:
     #: Seconds every answer takes, as when a service is slow.
     delay: float = 0
     expires_after_minutes: float = 30
+    #: Send Expires with a "-0000" zone, which parses to a time with no zone.
+    zoneless_expires: bool = False
     requests: list[httpx.Request] = field(default_factory=list)
 
     def transport(self) -> httpx.MockTransport:
@@ -159,9 +161,11 @@ class FakeApi:
             return httpx.Response(self.broken)
         if self.slow_down:
             return httpx.Response(429)
-        expires = email.utils.format_datetime(
-            self.clock() + dt.timedelta(minutes=self.expires_after_minutes), usegmt=True
-        )
+        until = self.clock() + dt.timedelta(minutes=self.expires_after_minutes)
+        if self.zoneless_expires:
+            expires = email.utils.format_datetime(until.replace(tzinfo=None))
+        else:
+            expires = email.utils.format_datetime(until, usegmt=True)
         headers = {"Expires": expires, "Last-Modified": LAST_MODIFIED}
         if request.headers.get("if-modified-since") == LAST_MODIFIED:
             return httpx.Response(304, headers=headers)

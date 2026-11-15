@@ -33,6 +33,14 @@ class UpstreamError(Exception):
         self.status = status
 
 
+class RefusedError(UpstreamError):
+    """A 403: MET will not answer this client, most often for its User-Agent."""
+
+    def __init__(self) -> None:
+        """A 403 is always the status."""
+        super().__init__(403)
+
+
 class SlowedDownError(UpstreamError):
     """A 429 with nothing kept to answer from."""
 
@@ -67,9 +75,11 @@ def _expires(response: httpx.Response, now: dt.datetime) -> dt.datetime:
     if not value:
         return now
     try:
-        return email.utils.parsedate_to_datetime(value)
+        parsed = email.utils.parsedate_to_datetime(value)
     except (TypeError, ValueError):
         return now
+    # A "-0000" zone parses to a time with none; HTTP dates are always UTC.
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.UTC)
 
 
 def _hold_off(response: httpx.Response, now: dt.datetime) -> dt.datetime:
@@ -122,6 +132,9 @@ class CachedClient:
             return _slowed(kept)
         if status == 203:  # noqa: PLR2004 - HTTP's own number
             log.warning("deprecated or beta product: %s", url)
+        if status == 403:  # noqa: PLR2004 - HTTP's own number
+            log.error("MET refused the request; check the contact in the config")
+            raise RefusedError
         if status not in {200, 203}:
             raise UpstreamError(status)
         data = response.json()
