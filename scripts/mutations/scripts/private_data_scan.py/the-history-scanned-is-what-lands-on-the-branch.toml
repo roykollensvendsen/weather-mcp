@@ -1,0 +1,5 @@
+[[rule]]
+name = "the history scanned is what lands on the branch"
+file = "scripts/private_data_scan.py"
+find = '_git\("log", "-p", "HEAD", "--no-color"'
+replace = '        return [("the history", _git("log", "-p", "--all", "--no-color", "--format=commit %H%n%B"))]'
