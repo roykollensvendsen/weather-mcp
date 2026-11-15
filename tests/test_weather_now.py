@@ -147,3 +147,10 @@ def test_every_answer_comes_within_the_deadline():
     answer = ask(api=FakeApi(delay=0.5), answer_within=0.1)
     assert not answer["success"]
     assert answer["say"] == "MET is slow to answer just now. Ask again in a moment."
+
+
+def test_a_refusal_names_the_contact_setting():
+    answer = ask(api=FakeApi(broken=403))
+    assert not answer["success"]
+    assert answer["say"].startswith("MET refused the request.")
+    assert "contact" in answer["say"]
