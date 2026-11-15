@@ -1,0 +1,5 @@
+[[rule]]
+name = "today leaves out what has passed"
+file = "src/weather_mcp/weather.py"
+find = '^        if at < after\.replace\(minute=0, second=0, microsecond=0\):$'
+replace = 'if False:'
