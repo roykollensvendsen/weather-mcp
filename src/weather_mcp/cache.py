@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
 
     import httpx
 
@@ -30,6 +30,9 @@ log = logging.getLogger(__name__)
 
 #: How long to hold off after a 429 that gives no Retry-After.
 HOLD_OFF = dt.timedelta(minutes=10)
+#: A place whose forecast expired longer ago than this is dropped from the file,
+#: so it does not become a history of where the owner has asked about.
+FORGET_AFTER = dt.timedelta(hours=24)
 #: The longest pause kept, whatever Retry-After says. A mistaken header must not
 #: silence the weather for days.
 LONGEST_HOLD_OFF = dt.timedelta(hours=1)
@@ -117,6 +120,11 @@ def _hold_off(response: httpx.Response, now: dt.datetime) -> dt.datetime:
     return until
 
 
+def _query(params: Mapping[str, str]) -> str:
+    """The point part of a cache key, the same whatever order it came in."""
+    return "&".join(f"{k}={params[k]}" for k in sorted(params))
+
+
 def _moment(text: str) -> dt.datetime:
     """A stored time; one with no zone is damage, since every time stored is UTC."""
     moment = dt.datetime.fromisoformat(text)
@@ -143,13 +151,18 @@ class CachedClient:
         user_agent: str,
         clock: Callable[[], dt.datetime] = _now,
         store: pathlib.Path | None = None,
+        keep: Iterable[Mapping[str, str]] = (),
     ) -> None:
         """Wrap an open client; every request carries the given User-Agent.
 
         With a store, what the cache holds is read from it now and written to it
-        after every change. Without one, it lives in memory only.
+        after every change. Without one, it lives in memory only. Each save
+        replaces the whole file, so with two servers at once the last one wins.
+        That costs at most an extra request after a forecast expires, never one
+        before. Places in `keep`, such as home, are never pruned.
         """
         self._http, self._agent, self._clock, self._store = http, user_agent, clock, store
+        self._keep = {_query(point) for point in keep}
         self._kept: dict[str, _Kept] = {}
         #: Until when MET asked us to stop asking; it covers every point, not one.
         self._held_until: dt.datetime | None = None
@@ -197,6 +210,13 @@ class CachedClient:
         """Write what the cache holds, readable by the owner only, never half-written."""
         if self._store is None:
             return
+        now = self._clock()
+        # RULE: places expired over a day ago are forgotten
+        self._kept = {
+            key: k
+            for key, k in self._kept.items()
+            if now - k.expires < FORGET_AFTER or key.partition("?")[2] in self._keep
+        }
         body = {
             "held_until": self._held_until.isoformat() if self._held_until else None,
             "kept": {
@@ -223,7 +243,7 @@ class CachedClient:
     def _write(self, body: bytes) -> None:
         """Replace the file in one step, from a temporary file of this writer's own."""
         assert self._store is not None  # noqa: S101 - _save checked it
-        self._store.parent.mkdir(parents=True, exist_ok=True)
+        self._store.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         fd, name = tempfile.mkstemp(dir=self._store.parent, prefix=".forecasts-", suffix=".part")
         part = pathlib.Path(name)
         try:
@@ -240,7 +260,7 @@ class CachedClient:
 
     async def get_json(self, url: str, params: Mapping[str, str]) -> Answer:
         """The JSON at url, from the cache when it is still current."""
-        key = url + "?" + "&".join(f"{k}={params[k]}" for k in sorted(params))
+        key = url + "?" + _query(params)
         kept, now = self._kept.get(key), self._clock()
         # RULE: nothing is asked again before it expires
         if kept is not None and now < kept.expires:

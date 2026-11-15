@@ -19,12 +19,13 @@ POINT = {"lat": "61.00", "lon": "9.00"}
 AGENT = "weather-mcp/0 https://example.org"
 
 
-def ask(api: FakeApi, store, point=POINT):
+def ask(api: FakeApi, store, point=POINT, keep=()):
     """One ask from a newly started client, over the cache file given."""
 
     async def go():
         async with httpx.AsyncClient(transport=api.transport()) as http:
-            return await CachedClient(http, AGENT, clock=api.clock, store=store).get_json(URL, point)
+            client = CachedClient(http, AGENT, clock=api.clock, store=store, keep=keep)
+            return await client.get_json(URL, point)
 
     return asyncio.run(go())
 
@@ -128,3 +129,29 @@ def test_a_stored_pause_is_at_most_an_hour(tmp_path):
     api.clock.advance(61)
     assert ask(api, store).data["type"] == "Feature", "but a restart an hour later asks again"
     assert len(api.forecast_requests()) == 1
+
+
+OTHER = {"lat": "61.50", "lon": "9.50"}
+
+
+def test_places_expired_over_a_day_ago_are_forgotten(tmp_path):
+    api, store = FakeApi(), tmp_path / "forecasts.json"
+    ask(api, store, OTHER)
+    api.clock.advance(25 * 60 + 31)
+    ask(api, store, POINT)
+    assert "lat=61.50" not in store.read_text(), "the file must not become a history of places"
+    assert "lat=61.00" in store.read_text()
+
+
+def test_home_is_never_forgotten(tmp_path):
+    api, store = FakeApi(), tmp_path / "forecasts.json"
+    ask(api, store, OTHER, keep=[OTHER])
+    api.clock.advance(25 * 60 + 31)
+    ask(api, store, POINT, keep=[OTHER])
+    assert "lat=61.50" in store.read_text()
+
+
+def test_the_cache_folder_is_private(tmp_path):
+    api, store = FakeApi(), tmp_path / "weather-mcp" / "forecasts.json"
+    ask(api, store)
+    assert stat.S_IMODE(store.parent.stat().st_mode) == 0o700
