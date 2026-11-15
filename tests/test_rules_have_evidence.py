@@ -32,9 +32,10 @@ def _mutate():
     return module
 
 
-#: The repository's own checks that this repository wrote. The scripts that came from
-#: the template mark rules of their own with no rows here yet; decisions/deferred.md says when.
-OWN_SCRIPTS = (ROOT / "scripts/private_data_scan.py",)
+#: The repository's own checks whose rules are guarded here. imperative.py, from the
+#: template, marks rules with no rows here yet; decisions/deferred.md says when.
+#: ratchet.py's rows and tests are tv-mcp's.
+OWN_SCRIPTS = tuple(ROOT / "scripts" / n for n in ("mutate.py", "private_data_scan.py", "ratchet.py"))
 
 
 def marked_rules() -> set[str]:
@@ -69,6 +70,7 @@ def defined_test_names() -> set[str]:
 def test_every_rule_in_the_source_has_a_row_in_the_mutation_table():
     """Without this the evidence falls behind the code and nobody sees it happen."""
     marked, rowed = marked_rules(), rowed_rules()
+    assert marked, "no rule is marked anywhere, so this would check nothing; is MARKER still right?"
     assert marked - rowed == set(), f"marked in the source and never switched off: {marked - rowed}"
     assert rowed - marked == set(), f"a row for a rule no longer in the source: {rowed - marked}"
 
