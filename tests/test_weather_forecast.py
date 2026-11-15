@@ -146,3 +146,16 @@ def test_a_forecast_holds_only_its_own_day():
     assert "minus 10" not in say
     assert "30" not in say
     assert "snow" not in say
+
+
+def test_today_late_in_the_evening_says_the_day_is_nearly_over():
+    """At 23:30 MET's first hour may already be tomorrow's; there is a forecast, just not for today."""
+    api = FakeApi(body=hourly(_tomorrow, start=dt.datetime(2026, 11, 14, 23, 0, tzinfo=dt.UTC)))
+    api.clock.now = dt.datetime(2026, 11, 14, 22, 30, tzinfo=dt.UTC)  # 23:30 in Oslo
+    voice = Voice(api)
+    try:
+        answer = voice.forecast(day="today")
+    finally:
+        voice.close()
+    assert not answer["success"]
+    assert answer["say"] == "Today is nearly over. Ask for tomorrow instead."
