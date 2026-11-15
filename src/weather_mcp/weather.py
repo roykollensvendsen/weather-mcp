@@ -117,8 +117,11 @@ def _sentence(answer: Answer, where: str) -> str:
 
 #: The days a forecast can be asked for, by how many days ahead they are.
 DAYS = {"today": 0, "tomorrow": 1}
-#: The parts of a day said, by the Oslo hour each begins and ends.
+#: The parts of a day said, by the Oslo hour each begins and ends. The hours before 06:00
+#: and the 23:00 hour belong to no part, though they still count toward the range, rain and wind.
 PARTS = (("in the morning", 6, 12), ("at midday", 12, 17), ("in the evening", 17, 23))
+#: What "today" hears once MET's first hour is already tomorrow's: the day is over, not early.
+NEARLY_OVER = "Today is nearly over. Ask for tomorrow instead."
 
 
 @dataclass(frozen=True)
@@ -144,6 +147,8 @@ def _hours_on(series: list[dict[str, Any]], date: dt.date, *, after: dt.datetime
         if at < after.replace(minute=0, second=0, microsecond=0):
             continue
         data = entry["data"]
+        # Today and tomorrow are hourly in MET's answer. Further ahead an hour may carry only
+        # next_6_hours, whose rain is six hours' worth, so a tool reaching there must not sum it.
         later = data.get("next_1_hours") or data.get("next_6_hours") or {}
         details = data["instant"]["details"]
         hours.append(
@@ -275,7 +280,10 @@ class Weather:
         date = today.date() + dt.timedelta(days=DAYS[day])
         hours = _hours_on(answer.data["properties"]["timeseries"], date, after=today)
         if not hours:
-            return {"success": False, "say": f"MET has no forecast for {day} yet."}
+            return {
+                "success": False,
+                "say": NEARLY_OVER if date == today.date() else f"MET has no forecast for {day} yet.",
+            }
         say = f"{day.capitalize()} {_spoken(where)}: {_day_sentence(hours)}" + _rough(where, accuracy_m)
         return {"success": True, "say": say, "place": where.name}
 
