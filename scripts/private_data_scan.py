@@ -9,8 +9,10 @@ staged for commit), or on the whole history:
 - no street address, such as a Norwegian street name followed by a number;
 - no coordinates in Norway more exact than two decimals, as a pair or as
   ``lat = ...``, except the made-up points the tests use;
-- not home itself: its name, or its latitude and longitude on one line, read
-  from the owner's ``~/.config/weather-mcp/config.toml``;
+- not home itself: its name, or its latitude and longitude within three lines
+  of each other, read from the owner's ``~/.config/weather-mcp/config.toml``.
+  Home's latitude alone is not refused: it is half a point, and a two-decimal
+  number on its own matches too much ordinary text;
 - no word from the owner's private list.
 
 The private list is ``~/.config/weather-mcp/private.toml``, holding
