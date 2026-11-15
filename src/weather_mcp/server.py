@@ -33,6 +33,17 @@ SLOW = "MET is slow to answer just now. Ask again in a moment."
 QUERY = re.compile(r"\?[^\s\"']*")
 
 
+#: The loggers httpx and httpcore write request addresses on.
+LOGGERS = (
+    "httpx",
+    "httpcore",
+    "httpcore.connection",
+    "httpcore.http11",
+    "httpcore.http2",
+    "httpcore.proxy",
+)
+
+
 class NoQueryStrings(logging.Filter):
     """Cut the query string out of every address a log line holds, and keep the line."""
 
@@ -44,8 +55,11 @@ class NoQueryStrings(logging.Filter):
 
 
 def hide_query_strings() -> None:
-    """Put the filter on the loggers that write request addresses, once."""
-    for name in ("httpx", "httpcore"):
+    """Put the filter on the loggers that write request addresses, once.
+
+    A logger's filter misses what its children log, so httpcore's children are named.
+    """
+    for name in LOGGERS:
         library = logging.getLogger(name)
         if not any(isinstance(f, NoQueryStrings) for f in library.filters):
             library.addFilter(NoQueryStrings())
