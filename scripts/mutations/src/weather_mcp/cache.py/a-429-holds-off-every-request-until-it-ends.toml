@@ -1,0 +1,5 @@
+[[rule]]
+name = "a 429 holds off every request until it ends"
+file = "src/weather_mcp/cache.py"
+find = 'if self._held_until is not None and now < self._held_until:'
+replace = 'if False:'

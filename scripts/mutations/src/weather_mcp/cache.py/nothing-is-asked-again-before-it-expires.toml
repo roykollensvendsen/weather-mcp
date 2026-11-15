@@ -1,0 +1,5 @@
+[[rule]]
+name = "nothing is asked again before it expires"
+file = "src/weather_mcp/cache.py"
+find = 'if kept is not None and now < kept.expires:'
+replace = 'if False:'

@@ -1,0 +1,5 @@
+[[rule]]
+name = "a commit is scanned as staged"
+file = "scripts/private_data_scan.py"
+find = 'if \(text := _staged\(name\)\) is not None\]'
+replace = 'return [(name, (ROOT / name).read_text()) for name in staged]'

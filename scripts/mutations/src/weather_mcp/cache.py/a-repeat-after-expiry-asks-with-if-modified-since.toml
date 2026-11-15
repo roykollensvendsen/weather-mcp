@@ -1,0 +1,5 @@
+[[rule]]
+name = "a repeat after expiry asks with if modified since"
+file = "src/weather_mcp/cache.py"
+find = 'if kept is not None and kept.last_modified:'
+replace = 'if False:'

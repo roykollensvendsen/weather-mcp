@@ -1,0 +1,5 @@
+[[rule]]
+name = "places expired over a day ago are forgotten"
+file = "src/weather_mcp/cache.py"
+find = 'if now - k\.expires < FORGET_AFTER or key\.partition'
+replace = 'if True'

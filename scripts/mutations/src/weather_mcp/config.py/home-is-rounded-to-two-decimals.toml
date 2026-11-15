@@ -1,0 +1,5 @@
+[[rule]]
+name = "home is rounded to two decimals"
+file = "src/weather_mcp/config.py"
+find = 'return round\(value, DECIMALS\)'
+replace = 'return value'

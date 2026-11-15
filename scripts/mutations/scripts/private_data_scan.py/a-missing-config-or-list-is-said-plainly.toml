@@ -1,0 +1,5 @@
+[[rule]]
+name = "a missing config or list is said plainly"
+file = "scripts/private_data_scan.py"
+find = 'if not os\.path\.lexists\(path\):  # a link'
+replace = 'if False:'

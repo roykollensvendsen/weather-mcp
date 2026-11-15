@@ -1,0 +1,5 @@
+[[rule]]
+name = "a shared name asks which one"
+file = "src/weather_mcp/places.py"
+find = 'if len\(by_municipality\) > 1:'
+replace = 'if False:'

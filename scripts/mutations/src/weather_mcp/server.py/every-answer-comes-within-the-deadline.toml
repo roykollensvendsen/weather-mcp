@@ -1,0 +1,5 @@
+[[rule]]
+name = "every answer comes within the deadline"
+file = "src/weather_mcp/server.py"
+find = 'return await asyncio.wait_for\(weather.now\(place\), answer_within\)'
+replace = 'return await weather.now(place)'
