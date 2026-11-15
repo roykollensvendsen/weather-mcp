@@ -111,3 +111,42 @@ def test_a_refusal_is_an_upstream_error():
     with pytest.raises(UpstreamError) as caught:
         fetch(api, params={"lat": "61.00001", "lon": "9.0"})
     assert caught.value.status == 403
+
+
+def test_a_429_holds_off_every_request_until_it_ends(session):
+    session.api.slow_down = True
+    for _ in range(2):
+        with pytest.raises(SlowedDownError):
+            session.ask()
+    assert len(session.api.forecast_requests()) == 1
+
+
+def test_the_hold_off_ends_and_asking_resumes(session):
+    session.api.slow_down = True
+    with pytest.raises(SlowedDownError):
+        session.ask()
+    session.api.slow_down = False
+    session.api.clock.advance(11)
+    assert session.ask().data["type"] == "Feature"
+    assert len(session.api.forecast_requests()) == 2
+
+
+def test_a_hold_off_covers_every_point(session):
+    session.ask()
+    session.api.clock.advance(31)
+    session.api.slow_down = True
+    session.ask()
+    with pytest.raises(SlowedDownError):
+        session.loop.run_until_complete(session.client.get_json(URL, {"lat": "61.01", "lon": "9.0"}))
+    assert len(session.api.forecast_requests()) == 2, "a new point waits out the hold-off too"
+
+
+def test_every_answer_during_a_hold_off_is_marked_old(session):
+    session.ask()
+    session.api.clock.advance(31)
+    session.api.slow_down = True
+    session.ask()
+    session.api.slow_down = False
+    session.api.clock.advance(1)
+    assert session.ask().slowed, "a forecast past its expiry must not come back as current"
+    assert len(session.api.forecast_requests()) == 2
