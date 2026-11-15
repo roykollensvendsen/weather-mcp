@@ -103,13 +103,17 @@ def marked_lines() -> list[str]:
 
 def _no_rows() -> int:
     """With no rows, a run passes only when no rule is marked either."""
-    print(f"no rules in {ROWS.relative_to(ROOT)} yet; add one file per rule the code enforces")  # noqa: T201
     # No rows but marked rules is a check that would pass on nothing.
     marked = len(marked_lines())
     # RULE: rules marked with no rows fail the run
     if marked:
-        print(f"{marked} rule{'s are' if marked > 1 else ' is'} marked, so this run fails")  # noqa: T201
+        print(  # noqa: T201
+            f"{marked} rule{'s are' if marked > 1 else ' is'} marked,"
+            f" but {ROWS.relative_to(ROOT)} has no rows. Restore it from main"
+            " (git checkout origin/main -- scripts/mutations), or add a row per rule."
+        )
         return 1
+    print(f"no rules in {ROWS.relative_to(ROOT)} yet; add one file per rule the code enforces")  # noqa: T201
     return 0
 
 
