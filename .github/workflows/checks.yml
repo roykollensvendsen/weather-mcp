@@ -95,3 +95,21 @@ jobs:
         run: uv run pytest -q -p no:cacheprovider --strict-markers --cov
       # - name: The project's own check
       #   run: uv run weather-mcp check .
+
+  # Each marked rule switched off in turn: the test named after it has to go
+  # red, or the rule is guarded by nothing. One Python version is enough, since
+  # this asks whether the tests can fail, not whether the code runs everywhere.
+  mutation:
+    runs-on: ubuntu-latest
+    # No time limit of our own: a mutation run is never cut short, however many rules it
+    # has. Only GitHub's six-hour limit for any job remains.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+          version: "0.12.13"
+          python-version: "3.13"
+      - run: uv sync --locked --all-extras
+      - name: Each rule's own test can fail
+        run: uv run python scripts/mutate.py
