@@ -116,6 +116,8 @@ class FakeApi:
     clock: Clock = field(default_factory=Clock)
     body: dict[str, object] = field(default_factory=forecast)
     slow_down: bool = False
+    #: What a 429 says in Retry-After, if anything: seconds, or an HTTP date.
+    retry_after: str | None = None
     #: A status MET answers every forecast with, as when it is down.
     broken: int | None = None
     #: Fail inside the client with a message carrying the full URL, as a library bug might.
@@ -160,7 +162,7 @@ class FakeApi:
         if self.broken is not None:
             return httpx.Response(self.broken)
         if self.slow_down:
-            return httpx.Response(429)
+            return httpx.Response(429, headers={"Retry-After": self.retry_after} if self.retry_after else {})
         until = self.clock() + dt.timedelta(minutes=self.expires_after_minutes)
         if self.zoneless_expires:
             expires = email.utils.format_datetime(until.replace(tzinfo=None))

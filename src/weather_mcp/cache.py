@@ -29,6 +29,9 @@ log = logging.getLogger(__name__)
 
 #: How long to hold off after a 429 that gives no Retry-After.
 HOLD_OFF = dt.timedelta(minutes=10)
+#: The longest pause kept, whatever Retry-After says. A mistaken header must not
+#: silence the weather for days.
+LONGEST_HOLD_OFF = dt.timedelta(hours=1)
 
 
 def cache_path() -> pathlib.Path:
@@ -96,8 +99,21 @@ def _expires(response: httpx.Response, now: dt.datetime) -> dt.datetime:
 
 
 def _hold_off(response: httpx.Response, now: dt.datetime) -> dt.datetime:
-    after = response.headers.get("retry-after", "")
-    return now + (dt.timedelta(seconds=int(after)) if after.isdigit() else HOLD_OFF)
+    """Until when to stop asking: Retry-After as seconds or as a date, at most an hour."""
+    after = response.headers.get("retry-after", "").strip()
+    until = now + HOLD_OFF
+    if after.isdigit():
+        seconds = int(after)
+        until = now + dt.timedelta(seconds=min(seconds, int(LONGEST_HOLD_OFF.total_seconds())))
+    elif after:
+        with contextlib.suppress(TypeError, ValueError):
+            parsed = email.utils.parsedate_to_datetime(after)
+            until = parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.UTC)
+    # RULE: a hold off lasts at most an hour
+    if until > now + LONGEST_HOLD_OFF:
+        log.warning("MET asked for a pause past an hour; holding off for an hour instead")
+        until = now + LONGEST_HOLD_OFF
+    return until
 
 
 def _slowed(kept: _Kept | None) -> Answer:

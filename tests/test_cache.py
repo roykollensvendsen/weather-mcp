@@ -1,10 +1,13 @@
 """The cache MET's terms ask every client to be."""
 
 import asyncio
+import contextlib
+import datetime as dt
+import email.utils
 
 import httpx
 import pytest
-from fakes import FORECAST_PATH, LAST_MODIFIED, FakeApi
+from fakes import FORECAST_PATH, LAST_MODIFIED, START, FakeApi
 
 from weather_mcp.cache import CachedClient, SlowedDownError, UpstreamError
 
@@ -161,3 +164,31 @@ def test_an_expiry_with_no_zone_is_read_as_utc():
         assert len(s.api.forecast_requests()) == 1
     finally:
         s.close()
+
+
+def _held_for(retry_after: str, minutes: float) -> int:
+    """How many forecast requests reach MET by `minutes` after a 429 that says `retry_after`."""
+    s = Session(FakeApi(slow_down=True, retry_after=retry_after))
+    try:
+        with pytest.raises(SlowedDownError):
+            s.ask()
+        s.api.slow_down = False
+        s.api.clock.advance(minutes)
+        with contextlib.suppress(SlowedDownError):
+            s.ask()
+        return len(s.api.forecast_requests())
+    finally:
+        s.close()
+
+
+def test_a_hold_off_lasts_at_most_an_hour():
+    assert _held_for("9" * 30, 59) == 1, "a huge Retry-After still holds off"
+    assert _held_for("9" * 30, 61) == 2, "but never past an hour"
+    far = email.utils.format_datetime(START + dt.timedelta(days=3), usegmt=True)
+    assert _held_for(far, 61) == 2, "nor for a date days away"
+
+
+def test_a_retry_after_date_is_understood():
+    when = email.utils.format_datetime(START + dt.timedelta(minutes=20), usegmt=True)
+    assert _held_for(when, 19) == 1
+    assert _held_for(when, 21) == 2
