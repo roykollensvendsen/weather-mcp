@@ -76,6 +76,16 @@ def _sentence(answer: Answer, place: Place) -> str:
     return say
 
 
+#: The longest place name said back, in letters. Names longer than this are cut, not refused.
+ECHO = 40
+
+
+def _echo(place: str) -> str:
+    """A spoken place said back as one short line, whatever arrived."""
+    words = " ".join(place.split())
+    return words if len(words) <= ECHO else words[:ECHO].rstrip() + "…"
+
+
 class Weather:
     """The tools' work, apart from the server that carries them."""
 
@@ -118,5 +128,5 @@ class Weather:
             # Only a name looked up whole can be shared: one with a county names one county.
             *rest, last = found.choices
             counties = f"{', '.join(rest)} or {last}" if rest else last
-            return f"Which {place.strip()}: in {counties}?"
-        return f"I only know places in Norway so far, and I can't find {place}. Yr's app has the rest."
+            return f"Which {_echo(place)}: in {counties}?"
+        return f"I only know places in Norway so far, and I can't find {_echo(place)}. Yr's app has the rest."
