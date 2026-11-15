@@ -86,3 +86,9 @@ name = "a hold off lasts at most an hour"
 file = "src/weather_mcp/cache.py"
 find = 'if until > now \+ LONGEST_HOLD_OFF:'
 replace = 'if False:'
+
+[[rule]]
+name = "a failed save never stops an answer"
+file = "src/weather_mcp/cache.py"
+find = '^        except OSError as failure:$'
+replace = 'except ZeroDivisionError as failure:'

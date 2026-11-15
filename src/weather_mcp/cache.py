@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import pathlib
+import tempfile
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -183,14 +184,34 @@ class CachedClient:
                 for key, k in self._kept.items()
             },
         }
+        # RULE: a failed save never stops an answer
+        try:
+            self._write(json.dumps(body).encode())
+        except OSError as failure:
+            # The kind and the file, never the message; the answer goes on.
+            log.warning(
+                "could not save the forecast cache (%s); check that %s is writable",
+                type(failure).__name__,
+                self._store,
+            )
+
+    def _write(self, body: bytes) -> None:
+        """Replace the file in one step, from a temporary file of this writer's own."""
+        assert self._store is not None  # noqa: S101 - _save checked it
         self._store.parent.mkdir(parents=True, exist_ok=True)
-        part = self._store.with_suffix(".part")
-        with contextlib.suppress(FileNotFoundError):
-            part.unlink()
-        fd = os.open(part, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, "wb") as file:
-            file.write(json.dumps(body).encode())
-        part.replace(self._store)
+        fd, name = tempfile.mkstemp(dir=self._store.parent, prefix=".forecasts-", suffix=".part")
+        part = pathlib.Path(name)
+        try:
+            os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "wb") as file:
+                file.write(body)
+                file.flush()
+                os.fsync(file.fileno())
+            part.replace(self._store)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                part.unlink()
+            raise
 
     async def get_json(self, url: str, params: Mapping[str, str]) -> Answer:
         """The JSON at url, from the cache when it is still current."""
