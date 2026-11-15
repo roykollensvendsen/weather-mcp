@@ -1,0 +1,5 @@
+[[rule]]
+name = "a second stop cannot cut the cleanup short"
+file = "tests/conftest.py"
+find = '^        signal\.signal\(signum, signal\.SIG_IGN\)$'
+replace = 'pass'

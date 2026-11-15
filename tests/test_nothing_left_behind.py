@@ -7,9 +7,12 @@ looks at what is left.
 
 import os
 import pathlib
+import signal
 import subprocess
 import sys
 import textwrap
+
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -106,3 +109,20 @@ def test_a_test_run_stopped_from_outside_removes_its_folder(tmp_path):
     )
     assert done.returncode != 0, "a stopped run must not report success"
     assert _left(spare) == [], f"left in the temporary folder: {_left(spare)}"
+
+
+def test_a_second_stop_cannot_cut_the_cleanup_short():
+    """GitHub sends SIGINT and then SIGTERM; the second must not stop the cleanup the first began."""
+    import importlib.util  # noqa: PLC0415
+
+    spec = importlib.util.spec_from_file_location("conftest_under_test", ROOT / "tests/conftest.py")
+    guards = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(guards)
+    kept = {s: signal.getsignal(s) for s in guards.STOPS}
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            guards._stopped(signal.SIGTERM, None)  # noqa: SLF001
+        assert all(signal.getsignal(s) is signal.SIG_IGN for s in guards.STOPS)
+    finally:
+        for s, handler in kept.items():
+            signal.signal(s, handler)
