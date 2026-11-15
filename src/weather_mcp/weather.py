@@ -71,14 +71,35 @@ ROUGH_M = 10_000.0
 HERE = "where you are"
 
 
+#: What the voice hears when a position came but cannot be used.
+UNUSABLE = "I can't use the phone's position, so ask again with a place name."
+
+
+class Here(Place):
+    """The phone's position: said as where you are, and kept in memory only."""
+
+
+def _spoken(where: Place) -> str:
+    return HERE if isinstance(where, Here) else f"in {where.name}"
+
+
+def _rough(where: Place, accuracy_m: float | None) -> str:
+    if isinstance(where, Here) and accuracy_m is not None and accuracy_m > ROUGH_M:
+        return " The phone's position is rough, so this may be off."
+    return ""
+
+
 def _position(lat: float | None, lon: float | None) -> Place | str | None:
     """The phone's position; a sentence when it can't be used; None without one."""
-    if lat is None or lon is None:
+    if lat is None and lon is None:
         return None
+    # Half a position, taken for home, would answer "here" for the wrong place.
+    if lat is None or lon is None:
+        return UNUSABLE
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):  # noqa: PLR2004 - the ends of the earth
-        return "I can't use the phone's position, so ask again with a place name."
+        return UNUSABLE
     # Rounded once, by point(), for MET and the cache alike.
-    return Place(name=HERE, lat=lat, lon=lon)
+    return Here(name=HERE, lat=lat, lon=lon)
 
 
 def _sentence(answer: Answer, where: str) -> str:
@@ -124,29 +145,33 @@ class Weather:
         accuracy_m: float | None = None,
     ) -> dict[str, Any]:
         """The weather right now: at a named place, else at the phone's position, else at home."""
-        here = None if place else _position(lat, lon)
-        if isinstance(here, str):
-            return {"success": False, "say": here}
-        where = here or await self._where(place)
+        where = await self._resolve(place, lat, lon)
         if isinstance(where, str):
             return {"success": False, "say": where}
-        params = point(where)
+        answer = await self._fetch(where)
+        if isinstance(answer, str):
+            return {"success": False, "say": answer}
+        say = _sentence(answer, _spoken(where)) + _rough(where, accuracy_m)
+        return {"success": True, "say": say, "place": where.name}
+
+    async def _resolve(self, place: str | None, lat: float | None, lon: float | None) -> Place | str:
+        """A named place, else the phone's position, else home; or the sentence saying why not."""
+        if place:
+            return await self._where(place)
+        here = _position(lat, lon)
+        return here if here is not None else await self._where(None)
+
+    async def _fetch(self, where: Place) -> Answer | str:
+        """MET's forecast for the point, or the sentence saying why there is none."""
         try:
             # A position is the phone's own, so it is kept in memory only, never in the file.
-            answer = await self._cache.get_json(FORECAST, params, on_disk=here is None)
+            return await self._cache.get_json(FORECAST, point(where), on_disk=not isinstance(where, Here))
         except SlowedDownError:
-            return {"success": False, "say": HELD_OFF}
+            return HELD_OFF
         except RefusedError:
-            return {
-                "success": False,
-                "say": f"MET refused the request. Check the contact in {config_path()}.",
-            }
+            return f"MET refused the request. Check the contact in {config_path()}."
         except (UpstreamError, httpx.HTTPError):
-            return {"success": False, "say": DOWN}
-        say = _sentence(answer, HERE if here else f"in {where.name}")
-        if here and accuracy_m is not None and accuracy_m > ROUGH_M:
-            say += " The phone's position is rough, so this may be off."
-        return {"success": True, "say": say, "place": where.name}
+            return DOWN
 
     async def _where(self, place: str | None) -> Place | str:
         """The place to ask about, or the sentence saying why there is none."""

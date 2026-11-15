@@ -28,11 +28,6 @@ if TYPE_CHECKING:
     import httpx
 
 log = logging.getLogger(__name__)
-# httpx and httpcore log each request's whole address, and for MET that holds the point:
-# home's, or the phone's. They may say nothing below a warning, whatever else is set up.
-for _library in ("httpx", "httpcore"):
-    # RULE: a position is never logged
-    logging.getLogger(_library).setLevel(logging.WARNING)
 
 #: How long to hold off after a 429 that gives no Retry-After.
 HOLD_OFF = dt.timedelta(minutes=10)

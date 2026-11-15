@@ -1,5 +1,0 @@
-[[rule]]
-name = "a position is never logged"
-file = "src/weather_mcp/cache.py"
-find = 'logging\.getLogger\(_library\)\.setLevel\(logging\.WARNING\)'
-replace = 'pass'
