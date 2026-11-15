@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -18,9 +19,13 @@ INSTRUCTIONS = (
 LOOKS = ToolAnnotations(read_only_hint=True)
 #: What the voice hears when weather-mcp itself fails, so it never hears only that the tool failed.
 BROKE = "That went wrong inside weather-mcp. Try again, and if it fails again, check its log."
+#: The voice gives up on a call after about 15 seconds; every answer comes before then.
+ANSWER_WITHIN = 12.0
+#: What the voice hears when the services are too slow to answer in time.
+SLOW = "MET is slow to answer just now. Ask again in a moment."
 
 
-def build_server(weather: Weather) -> MCPServer[Any]:
+def build_server(weather: Weather, *, answer_within: float = ANSWER_WITHIN) -> MCPServer[Any]:
     """The MCP server with weather_now."""
     server: MCPServer[Any] = MCPServer(name="weather", instructions=INSTRUCTIONS)
 
@@ -31,7 +36,10 @@ def build_server(weather: Weather) -> MCPServer[Any]:
     )
     async def weather_now(place: str | None = None) -> dict[str, Any]:
         try:
-            return await weather.now(place)
+            # RULE: every answer comes within the deadline
+            return await asyncio.wait_for(weather.now(place), answer_within)
+        except TimeoutError:
+            return {"success": False, "say": SLOW}
         except Exception as failure:  # noqa: BLE001 - whatever broke, the voice gets a sentence
             # RULE: a failure logs no coordinates
             # Only the kind of failure: its message or traceback can carry the

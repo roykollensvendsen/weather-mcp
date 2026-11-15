@@ -21,7 +21,7 @@ AGENT = "weather-mcp/0 https://example.org"
 class Voice:
     """Calls the server's tools as a voice session would, over one open client."""
 
-    def __init__(self, api: FakeApi | None = None, home: Place | None = HOME):
+    def __init__(self, api: FakeApi | None = None, home: Place | None = HOME, answer_within: float = 12.0):
         self.api = api or FakeApi()
         self.loop = asyncio.new_event_loop()
         self.http = httpx.AsyncClient(transport=self.api.transport())
@@ -30,7 +30,7 @@ class Voice:
             CachedClient(self.http, AGENT, clock=self.api.clock),
             PlaceFinder(self.http, AGENT),
         )
-        self.server = build_server(weather)
+        self.server = build_server(weather, answer_within=answer_within)
 
     def now(self, place: str | None = None) -> dict:
         arguments = {} if place is None else {"place": place}
@@ -141,3 +141,9 @@ def test_a_failure_logs_no_coordinates(caplog):
     assert "weather_now failed" in logged
     assert "61.00" not in logged
     assert "lat=" not in logged
+
+
+def test_every_answer_comes_within_the_deadline():
+    answer = ask(api=FakeApi(delay=0.5), answer_within=0.1)
+    assert not answer["success"]
+    assert answer["say"] == "MET is slow to answer just now. Ask again in a moment."

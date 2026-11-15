@@ -10,6 +10,7 @@ Every place is made up, near 61.00 N 9.00 E.
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import email.utils
 import json
@@ -119,11 +120,18 @@ class FakeApi:
     broken: int | None = None
     #: Fail inside the client with a message carrying the full URL, as a library bug might.
     crash: bool = False
+    #: Seconds every answer takes, as when a service is slow.
+    delay: float = 0
     expires_after_minutes: float = 30
     requests: list[httpx.Request] = field(default_factory=list)
 
     def transport(self) -> httpx.MockTransport:
-        return httpx.MockTransport(self.handle)
+        return httpx.MockTransport(self._handle_async)
+
+    async def _handle_async(self, request: httpx.Request) -> httpx.Response:
+        if self.delay:
+            await asyncio.sleep(self.delay)
+        return self.handle(request)
 
     def forecast_requests(self) -> list[httpx.Request]:
         return [r for r in self.requests if r.url.path == FORECAST_PATH]
