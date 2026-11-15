@@ -54,15 +54,18 @@ class NoQueryStrings(logging.Filter):
         return True
 
 
+NO_QUERY_STRINGS = NoQueryStrings()
+
+
 def hide_query_strings() -> None:
     """Put the filter on the loggers that write request addresses, once.
 
     A logger's filter misses what its children log, so httpcore's children are named.
     """
     for name in LOGGERS:
-        library = logging.getLogger(name)
-        if not any(isinstance(f, NoQueryStrings) for f in library.filters):
-            library.addFilter(NoQueryStrings())
+        # Removing first keeps one filter however many servers are built.
+        logging.getLogger(name).removeFilter(NO_QUERY_STRINGS)
+        logging.getLogger(name).addFilter(NO_QUERY_STRINGS)
 
 
 def build_server(weather: Weather, *, answer_within: float = ANSWER_WITHIN) -> MCPServer[Any]:
