@@ -77,6 +77,14 @@ def _hold_off(response: httpx.Response, now: dt.datetime) -> dt.datetime:
     return now + (dt.timedelta(seconds=int(after)) if after.isdigit() else HOLD_OFF)
 
 
+def _slowed(kept: _Kept | None) -> Answer:
+    """What a slowed-down ask gets: the forecast kept, marked as old, or nothing."""
+    # RULE: a 429 answers from the cache
+    if kept is None:
+        raise SlowedDownError
+    return Answer(kept.data, kept.fetched, slowed=True)
+
+
 class CachedClient:
     """GETs JSON, answering from what it holds whenever MET's rules say to."""
 
@@ -86,6 +94,8 @@ class CachedClient:
         """Wrap an open client; every request carries the given User-Agent."""
         self._http, self._agent, self._clock = http, user_agent, clock
         self._kept: dict[str, _Kept] = {}
+        #: Until when MET asked us to stop asking; it covers every point, not one.
+        self._held_until: dt.datetime | None = None
 
     async def get_json(self, url: str, params: Mapping[str, str]) -> Answer:
         """The JSON at url, from the cache when it is still current."""
@@ -94,6 +104,9 @@ class CachedClient:
         # RULE: nothing is asked again before it expires
         if kept is not None and now < kept.expires:
             return Answer(kept.data, kept.fetched)
+        # RULE: a 429 holds off every request until it ends
+        if self._held_until is not None and now < self._held_until:
+            return _slowed(kept)
         headers = {"User-Agent": self._agent}
         # RULE: a repeat after expiry asks with if modified since
         if kept is not None and kept.last_modified:
@@ -104,12 +117,9 @@ class CachedClient:
             kept.expires = _expires(response, now)
             return Answer(kept.data, kept.fetched)
         if status == 429:  # noqa: PLR2004 - HTTP's own number
-            log.warning("MET asked us to slow down: %s", url)
-            # RULE: a 429 answers from the cache
-            if kept is None:
-                raise SlowedDownError
-            kept.expires = _hold_off(response, now)
-            return Answer(kept.data, kept.fetched, slowed=True)
+            self._held_until = _hold_off(response, now)
+            log.warning("MET asked us to slow down until %s", f"{self._held_until:%H:%M} UTC")
+            return _slowed(kept)
         if status == 203:  # noqa: PLR2004 - HTTP's own number
             log.warning("deprecated or beta product: %s", url)
         if status not in {200, 203}:
