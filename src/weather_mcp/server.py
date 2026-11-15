@@ -32,8 +32,11 @@ def build_server(weather: Weather) -> MCPServer[Any]:
     async def weather_now(place: str | None = None) -> dict[str, Any]:
         try:
             return await weather.now(place)
-        except Exception:  # whatever broke, the voice gets a sentence
-            logging.getLogger(__name__).exception("weather_now failed")
+        except Exception as failure:  # noqa: BLE001 - whatever broke, the voice gets a sentence
+            # RULE: a failure logs no coordinates
+            # Only the kind of failure: its message or traceback can carry the
+            # request's URL, and for home that URL is the home point.
+            logging.getLogger(__name__).error("weather_now failed: %s", type(failure).__name__)  # noqa: TRY400
             return {"success": False, "say": BROKE}
 
     return server

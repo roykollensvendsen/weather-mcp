@@ -117,6 +117,8 @@ class FakeApi:
     slow_down: bool = False
     #: A status MET answers every forecast with, as when it is down.
     broken: int | None = None
+    #: Fail inside the client with a message carrying the full URL, as a library bug might.
+    crash: bool = False
     expires_after_minutes: float = 30
     requests: list[httpx.Request] = field(default_factory=list)
 
@@ -142,6 +144,9 @@ class FakeApi:
             value = request.url.params.get(key, "")
             if "." in value and len(value.split(".")[1]) > 4:
                 return httpx.Response(403, text="Too many decimals")
+        if self.crash:
+            msg = f"unexpected failure asking {request.url}"
+            raise RuntimeError(msg)
         if self.broken is not None:
             return httpx.Response(self.broken)
         if self.slow_down:

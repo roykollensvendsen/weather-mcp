@@ -62,3 +62,9 @@ name = "a 429 holds off every request until it ends"
 file = "src/weather_mcp/cache.py"
 find = 'if self._held_until is not None and now < self._held_until:'
 replace = 'if False:'
+
+[[rule]]
+name = "a failure logs no coordinates"
+file = "src/weather_mcp/server.py"
+find = 'logging.getLogger\(__name__\).error\("weather_now failed: %s"'
+replace = 'logging.getLogger(__name__).exception("weather_now failed")'
