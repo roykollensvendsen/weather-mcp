@@ -85,3 +85,27 @@ def test_a_name_is_looked_up_once():
 
     asyncio.run(go())
     assert len([r for r in api.requests if r.url.path == PLACES_PATH]) == 1
+
+
+def test_two_towns_of_one_name_in_one_county_are_asked_by_municipality():
+    found = find("Bø")
+    assert found.place is None
+    assert found.choices == ["Nedreli", "Øvreli"]
+
+
+def test_a_municipality_picks_one_of_two_towns_in_a_county():
+    found = find("Bø i Nedreli")
+    assert found.place is not None
+    assert (found.place.lat, found.place.lon) == (61.12, 9.12)
+
+
+def test_a_town_and_its_municipality_are_one_place():
+    found = find("Testby")
+    assert found.place is not None
+    assert found.choices == []
+
+
+def test_too_many_towns_are_narrowed_by_county_first():
+    found = find("Moen i Fjellfylke")
+    assert found.place is None
+    assert found.choices == ["Fjellfylkevik", "Øvreli"]

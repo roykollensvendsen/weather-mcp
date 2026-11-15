@@ -13,5 +13,4 @@ read whenever a decision record is written and when a phase ends.
 | `CODEOWNERS` | A second person who reviews | It would name one person as the owner of everything |
 | Rain for the next two hours in `weather_now`, from MET's radar nowcast | The walking skeleton merged into main | One product at a time keeps the first review small |
 | A forecast cache kept on disk across restarts | The walking skeleton merged; it must land before the plugin is approved for the voice | A restart forgets the cache and can ask MET again before `Expires`, which MET's terms forbid. One change per pull request |
-| Telling apart two towns with the same name in one county | The first time a spoken name picks the wrong one of two such towns | A county is enough for every shared name tried so far; asking by municipality as well doubles the question |
 | `pre-commit` as a requirement rather than an option | A second contributor | The gates run in CI, and a hook one person installs is a hook one person maintains |

@@ -63,23 +63,35 @@ def forecast(temperature: float = 7.0, symbol: str = "cloudy", rain: float = 0.0
 KIND_CODES = {"By": "by", "Tettsted": "tettsted", "Tettbebyggelse": "tettbebyggelse", "Gard": "gard"}
 
 
-def place(name: str, kind: str, county: str, lat: float, lon: float) -> dict[str, object]:
+def place(  # noqa: PLR0913 - one argument per field Kartverket gives
+    name: str, kind: str, county: str, lat: float, lon: float, *, municipality: str = ""
+) -> dict[str, object]:
     """One hit in Kartverket's /sted answer, in its own field names."""
     return {
         "stedsnavn": [{"skrivemåte": name, "navnestatus": "hovednavn"}],
         "navneobjekttype": kind,
         "representasjonspunkt": {"øst": lon, "nord": lat},
         "fylker": [{"fylkesnavn": county}],
-        "kommuner": [{"kommunenavn": county.split(" - ", maxsplit=1)[0] + " kommune"}],
+        "kommuner": [{"kommunenavn": municipality or county.split(" - ", maxsplit=1)[0] + "vik"}],
     }
 
 
 #: Made-up places. "Moen" is shared, as many real Norwegian names are. Some
 #: counties have their name in two languages, as several real ones do.
 PLACES: dict[str, list[dict[str, object]]] = {
-    "Testby": [place("Testby", "By", "Fjellfylke", 61.00412, 9.00377)],
+    # A town and its municipality share a name and sit a little apart, as Bergen's do.
+    "Testby": [
+        place("Testby", "By", "Fjellfylke", 61.00412, 9.00377, municipality="Testby"),
+        place("Testby", "Kommune", "Fjellfylke", 61.013, 9.012, municipality="Testby"),
+    ],
+    # Two towns of one name in one county, in different municipalities.
+    "Bø": [
+        place("Bø", "Tettsted", "Fjellfylke", 61.11, 9.11, municipality="Øvreli"),
+        place("Bø", "Tettsted", "Fjellfylke", 61.12, 9.12, municipality="Nedreli"),
+    ],
     "Moen": [
         place("Moen", "Tettsted", "Fjellfylke", 61.01, 9.01),
+        place("Moen", "Tettsted", "Fjellfylke", 61.10, 9.10, municipality="Øvreli"),
         place("Moen", "Tettsted", "Kystfylke", 61.02, 9.02),
         place("Moen", "Gard", "Dalfylke", 61.03, 9.03),
         place("Moen", "Tettbebyggelse", "Nordfylke - Davvifylke", 61.06, 9.06),

@@ -59,16 +59,37 @@ def _place(hit: dict[str, Any]) -> Place:
     return Place(name=_names(hit)[0], lat=rounded(float(point["nord"])), lon=rounded(float(point["øst"])))
 
 
+def _municipality(hit: dict[str, Any]) -> str:
+    municipalities = hit.get("kommuner") or [{}]
+    return str(municipalities[0].get("kommunenavn", ""))
+
+
 def _one_of(hits: list[dict[str, Any]]) -> Found:
-    by_county: dict[str, dict[str, Any]] = {}
+    """One place, or the question that tells them apart.
+
+    A town and the municipality of the same name are one place, so hits are
+    counted per municipality. Counties are asked about when they tell the
+    places apart, and municipalities when two places share a county.
+    """
+    by_municipality: dict[tuple[str, str], dict[str, Any]] = {}
     for hit in hits:
-        by_county.setdefault(_county_names(hit)[0], hit)
+        by_municipality.setdefault((_county_names(hit)[0], _municipality(hit)), hit)
+    counties = {county for county, _ in by_municipality}
     # RULE: a shared name asks which one
-    if len(by_county) > 1:
-        return Found(place=None, choices=sorted(by_county)[:MOST_CHOICES])
-    if not by_county:
+    if len(by_municipality) > 1:
+        # Counties first when they tell the places apart, or when there are too
+        # many places to read out; "Moen i <county>" then narrows to municipalities.
+        by_county = len(counties) == len(by_municipality) or len(by_municipality) > MOST_CHOICES
+        names = counties if by_county else {municipality for _, municipality in by_municipality}
+        return Found(place=None, choices=sorted(names)[:MOST_CHOICES])
+    if not by_municipality:
         return Found(place=None)
-    return Found(place=_place(next(iter(by_county.values()))))
+    return Found(place=_place(next(iter(by_municipality.values()))))
+
+
+def _lies_in(hit: dict[str, Any], area: str) -> bool:
+    """Whether a spoken county or municipality is where this place is."""
+    return area.casefold() in (n.casefold() for n in [*_county_names(hit), _municipality(hit)])
 
 
 class PlaceFinder:
@@ -83,16 +104,15 @@ class PlaceFinder:
         """The place a spoken name means.
 
         "Mo i Rana" is first looked up whole, since many names say "i". Only
-        when that finds nothing is "Moen i Agder" read as a name and a county.
+        when that finds nothing is "Moen i Agder" read as a name and a county,
+        or a name and a municipality.
         """
         spoken = spoken.strip()
         whole = await self._named(spoken)
-        name, i, county = spoken.rpartition(" i ")
+        name, i, area = spoken.rpartition(" i ")
         if whole or not i:
             return _one_of(whole)
-        wanted = county.strip().casefold()
-        hits = [h for h in await self._named(name) if wanted in (c.casefold() for c in _county_names(h))]
-        return _one_of(hits)
+        return _one_of([h for h in await self._named(name) if _lies_in(h, area.strip())])
 
     async def _named(self, name: str) -> list[dict[str, Any]]:
         """Settled places with exactly this name, in any of their spellings."""
