@@ -1,0 +1,5 @@
+[[rule]]
+name = "a ratchet stopped from outside removes what it made"
+file = "scripts/ratchet.py"
+find = '^        signal\.signal\(signum, stop\)$'
+replace = 'pass'
