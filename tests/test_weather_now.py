@@ -268,3 +268,13 @@ def test_a_failed_request_carries_the_position_nowhere(caplog):
     for seen in (caplog.text, str(answer)):
         assert "61.37" not in seen
         assert "9.42" not in seen
+
+
+def test_a_position_is_never_logged_by_httpcores_own_loggers(caplog):
+    """A filter on a logger misses what its children log, and httpcore logs on its children."""
+    caplog.set_level(logging.DEBUG)
+    Voice().close()
+    for child in ("httpcore.connection", "httpcore.http11", "httpcore.http2", "httpcore.proxy"):
+        logging.getLogger(child).debug("asked https://api.met.no/forecast?lat=61.37&lon=9.42")
+    assert "61.37" not in caplog.text
+    assert "asked https://api.met.no/forecast?…" in caplog.text
