@@ -85,3 +85,46 @@ def test_a_failed_save_never_stops_an_answer(tmp_path, caplog):
     assert "PermissionError" in caplog.text
     assert "is writable" in caplog.text
     assert "61.00" not in caplog.text
+
+
+def test_a_cache_that_cannot_be_read_starts_afresh(tmp_path, caplog):
+    store = tmp_path / "forecasts.json"
+    store.write_text("{}")
+    store.chmod(0o000)
+    try:
+        answer = ask(FakeApi(), store)
+    finally:
+        store.chmod(0o600)
+    assert answer.data["type"] == "Feature"
+    assert "could not read the forecast cache (PermissionError)" in caplog.text
+
+
+def _stored(store, held_until, expires="2026-11-14T12:30:00+00:00"):
+    body = {
+        "held_until": held_until,
+        "kept": {
+            URL + "?lat=61.00&lon=9.00": {
+                "data": {"type": "Kept"},
+                "fetched": "2026-11-14T11:00:00+00:00",
+                "expires": expires,
+                "last_modified": None,
+            }
+        },
+    }
+    store.write_text(json.dumps(body))
+
+
+def test_a_stored_time_with_no_zone_is_damage(tmp_path):
+    api, store = FakeApi(), tmp_path / "forecasts.json"
+    _stored(store, None, expires="2026-11-14T12:30:00")
+    assert ask(api, store).data["type"] == "Feature", "the damaged file is not trusted"
+    assert len(api.forecast_requests()) == 1
+
+
+def test_a_stored_pause_is_at_most_an_hour(tmp_path):
+    api, store = FakeApi(), tmp_path / "forecasts.json"
+    _stored(store, "2026-12-14T12:00:00+00:00", expires="2026-11-14T11:30:00+00:00")
+    assert ask(api, store).slowed, "the pause still holds at first"
+    api.clock.advance(61)
+    assert ask(api, store).data["type"] == "Feature", "but a restart an hour later asks again"
+    assert len(api.forecast_requests()) == 1

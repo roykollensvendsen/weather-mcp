@@ -117,6 +117,15 @@ def _hold_off(response: httpx.Response, now: dt.datetime) -> dt.datetime:
     return until
 
 
+def _moment(text: str) -> dt.datetime:
+    """A stored time; one with no zone is damage, since every time stored is UTC."""
+    moment = dt.datetime.fromisoformat(text)
+    if moment.tzinfo is None:
+        msg = "a stored time with no zone"
+        raise ValueError(msg)
+    return moment
+
+
 def _slowed(kept: _Kept | None) -> Answer:
     """What a slowed-down ask gets: the forecast kept, marked as old, or nothing."""
     # RULE: a 429 answers from the cache
@@ -148,25 +157,41 @@ class CachedClient:
         self._load()
 
     def _load(self) -> None:
-        if self._store is None or not self._store.is_file():
+        if self._store is None or not self._store.exists():
             return
         try:
             raw = json.loads(self._store.read_bytes())
+        except OSError as failure:
+            log.warning(
+                "could not read the forecast cache (%s); check %s, starting afresh",
+                type(failure).__name__,
+                self._store,
+            )
+            return
+        except ValueError:
+            log.warning("the forecast cache file was damaged; starting afresh")
+            return
+        try:
             kept = {
                 key: _Kept(
                     entry["data"],
-                    dt.datetime.fromisoformat(entry["fetched"]),
-                    dt.datetime.fromisoformat(entry["expires"]),
+                    _moment(entry["fetched"]),
+                    _moment(entry["expires"]),
                     entry.get("last_modified"),
                 )
                 for key, entry in raw["kept"].items()
             }
             held = raw.get("held_until")
-            held_until = dt.datetime.fromisoformat(held) if held else None
+            held_until = _moment(held) if held else None
         except (ValueError, KeyError, TypeError, AttributeError):
             log.warning("the forecast cache file was damaged; starting afresh")
             return
         self._kept, self._held_until = kept, held_until
+        # A pause read back is never longer than one MET could ask for now. The
+        # shorter one is saved, so a restart every hour cannot keep it going.
+        if held_until is not None and held_until > self._clock() + LONGEST_HOLD_OFF:
+            self._held_until = self._clock() + LONGEST_HOLD_OFF
+            self._save()
 
     def _save(self) -> None:
         """Write what the cache holds, readable by the owner only, never half-written."""
@@ -187,11 +212,11 @@ class CachedClient:
         # RULE: a failed save never stops an answer
         try:
             self._write(json.dumps(body).encode())
-        except OSError as failure:
+        except OSError as unsaved:
             # The kind and the file, never the message; the answer goes on.
             log.warning(
                 "could not save the forecast cache (%s); check that %s is writable",
-                type(failure).__name__,
+                type(unsaved).__name__,
                 self._store,
             )
 
