@@ -86,6 +86,11 @@ def _echo(place: str) -> str:
     return words if len(words) <= ECHO else words[:ECHO].rstrip() + "…"
 
 
+def point(place: Place) -> dict[str, str]:
+    """The point MET is asked about, exactly as the request and the cache spell it."""
+    return {"lat": f"{place.lat:.2f}", "lon": f"{place.lon:.2f}"}
+
+
 class Weather:
     """The tools' work, apart from the server that carries them."""
 
@@ -98,7 +103,7 @@ class Weather:
         where = await self._where(place)
         if isinstance(where, str):
             return {"success": False, "say": where}
-        params = {"lat": f"{where.lat:.2f}", "lon": f"{where.lon:.2f}"}
+        params = point(where)
         try:
             answer = await self._cache.get_json(FORECAST, params)
         except SlowedDownError:
