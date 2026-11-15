@@ -163,3 +163,20 @@ def test_an_older_open_cache_folder_is_made_private(tmp_path):
     store.parent.chmod(0o755)
     ask(api, store)
     assert stat.S_IMODE(store.parent.stat().st_mode) == 0o700
+
+
+def test_a_position_is_never_written_to_the_cache_file(tmp_path):
+    api, store = FakeApi(), tmp_path / "forecasts.json"
+    phone = {"lat": "61.37", "lon": "9.42"}
+
+    async def go():
+        async with httpx.AsyncClient(transport=api.transport()) as http:
+            client = CachedClient(http, AGENT, clock=api.clock, store=store)
+            await client.get_json(URL, POINT)
+            await client.get_json(URL, phone, on_disk=False)
+            return await client.get_json(URL, phone, on_disk=False)
+
+    assert asyncio.run(go()).data["type"] == "Feature"
+    assert len(api.forecast_requests()) == 2, "kept in memory, so asked once"
+    assert "61.37" not in store.read_text()
+    assert "lat=61.00" in store.read_text()

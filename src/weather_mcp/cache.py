@@ -28,6 +28,11 @@ if TYPE_CHECKING:
     import httpx
 
 log = logging.getLogger(__name__)
+# httpx and httpcore log each request's whole address, and for MET that holds the point:
+# home's, or the phone's. They may say nothing below a warning, whatever else is set up.
+for _library in ("httpx", "httpcore"):
+    # RULE: a position is never logged
+    logging.getLogger(_library).setLevel(logging.WARNING)
 
 #: How long to hold off after a 429 that gives no Retry-After.
 HOLD_OFF = dt.timedelta(minutes=10)
@@ -164,6 +169,7 @@ class CachedClient:
         """
         self._http, self._agent, self._clock, self._store = http, user_agent, clock, store
         self._keep = {_query(point) for point in keep}
+        self._in_memory: set[str] = set()
         self._kept: dict[str, _Kept] = {}
         #: Until when MET asked us to stop asking; it covers every point, not one.
         self._held_until: dt.datetime | None = None
@@ -228,6 +234,8 @@ class CachedClient:
                     "last_modified": k.last_modified,
                 }
                 for key, k in self._kept.items()
+                # RULE: a position is never written to the cache file
+                if key not in self._in_memory
             },
         }
         # RULE: a failed save never stops an answer
@@ -263,9 +271,21 @@ class CachedClient:
                 part.unlink()
             raise
 
-    async def get_json(self, url: str, params: Mapping[str, str]) -> Answer:
-        """The JSON at url, from the cache when it is still current."""
+    def _mark(self, key: str, *, on_disk: bool) -> None:
+        """Note whether `key` may be written to the file; asked once with on_disk, it may."""
+        if on_disk:
+            self._in_memory.discard(key)
+        elif key.partition("?")[2] not in self._keep:
+            self._in_memory.add(key)
+
+    async def get_json(self, url: str, params: Mapping[str, str], *, on_disk: bool = True) -> Answer:
+        """The JSON at url, from the cache when it is still current.
+
+        With on_disk false, what is fetched is kept in memory only and never written to the
+        file, unless the same point is also asked for with on_disk true.
+        """
         key = url + "?" + _query(params)
+        self._mark(key, on_disk=on_disk)
         kept, now = self._kept.get(key), self._clock()
         # RULE: nothing is asked again before it expires
         if kept is not None and now < kept.expires:
