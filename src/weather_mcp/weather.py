@@ -6,6 +6,7 @@ time, never in UTC.
 
 from __future__ import annotations
 
+import re
 import zoneinfo
 from typing import TYPE_CHECKING, Any
 
@@ -24,29 +25,33 @@ OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 DOWN = "MET isn't answering. Yr's app still works."
 HELD_OFF = "MET asked us to slow down. Ask again in a few minutes."
 
-#: MET's symbol codes, without their _day, _night or _polartwilight ending.
-SKY = {
+#: Symbols with words of their own. The rest are built from parts, below.
+PLAIN = {
     "clearsky": "clear",
     "fair": "fair",
     "partlycloudy": "partly cloudy",
     "cloudy": "cloudy",
     "fog": "foggy",
-    "lightrain": "light rain",
-    "rain": "rain",
-    "heavyrain": "heavy rain",
-    "lightrainshowers": "light rain showers",
-    "rainshowers": "rain showers",
-    "heavyrainshowers": "heavy rain showers",
-    "lightsleet": "light sleet",
-    "sleet": "sleet",
-    "heavysleet": "heavy sleet",
-    "lightsnow": "light snow",
-    "snow": "snow",
-    "heavysnow": "heavy snow",
-    "lightsnowshowers": "light snow showers",
-    "snowshowers": "snow showers",
-    "rainandthunder": "rain and thunder",
 }
+#: How MET builds every other symbol: strength, then what falls, then the rest.
+#: MET's own list spells two of them "lightssleet…" and "lightssnow…".
+SYMBOL = re.compile(
+    r"^(?:(?P<strength>light|lights|heavy))?(?P<falls>rain|sleet|snow)(?P<showers>showers)?(?P<thunder>andthunder)?$"
+)
+
+
+def sky_words(code: str) -> str:
+    """The spoken words for a MET symbol code, or "" for one not known."""
+    code = code.split("_", maxsplit=1)[0]
+    if code in PLAIN:
+        return PLAIN[code]
+    parts = SYMBOL.match(code)
+    if parts is None:
+        return ""
+    strength = {"light": "light ", "lights": "light ", "heavy": "heavy "}.get(parts["strength"] or "", "")
+    showers = " showers" if parts["showers"] else ""
+    thunder = " and thunder" if parts["thunder"] else ""
+    return f"{strength}{parts['falls']}{showers}{thunder}"
 
 
 def _degrees(value: float) -> str:
@@ -57,7 +62,7 @@ def _degrees(value: float) -> str:
 
 def _sky(now: dict[str, Any]) -> str:
     code = str(now["data"].get("next_1_hours", {}).get("summary", {}).get("symbol_code", ""))
-    return SKY.get(code.split("_", maxsplit=1)[0], "")
+    return sky_words(code)
 
 
 def _sentence(answer: Answer, place: Place) -> str:
