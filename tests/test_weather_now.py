@@ -278,3 +278,9 @@ def test_a_position_is_never_logged_by_httpcores_own_loggers(caplog):
         logging.getLogger(child).debug("asked https://api.met.no/forecast?lat=61.37&lon=9.42")
     assert "61.37" not in caplog.text
     assert "asked https://api.met.no/forecast?…" in caplog.text
+
+
+def test_building_many_servers_keeps_one_filter():
+    Voice().close()
+    Voice().close()
+    assert len(logging.getLogger("httpcore.http11").filters) == 1
