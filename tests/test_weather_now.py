@@ -131,3 +131,13 @@ def test_weather_now_only_looks():
 def test_the_tool_credits_met_norway():
     tool = Voice().tools()["weather_now"]
     assert "Data from MET Norway" in tool.description
+
+
+def test_a_failure_logs_no_coordinates(caplog):
+    caplog.set_level("DEBUG")
+    answer = ask(api=FakeApi(crash=True))
+    assert not answer["success"]
+    logged = caplog.text
+    assert "weather_now failed" in logged
+    assert "61.00" not in logged
+    assert "lat=" not in logged
