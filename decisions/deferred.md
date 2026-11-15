@@ -12,4 +12,5 @@ read whenever a decision record is written and when a phase ends.
 | A release workflow and publishing | The first release someone outside will install | A published name is claimed and a published version cannot be reused |
 | `CODEOWNERS` | A second person who reviews | It would name one person as the owner of everything |
 | Rain for the next two hours in `weather_now`, from MET's radar nowcast | The walking skeleton merged into main | One product at a time keeps the first review small |
+| Rows in `scripts/mutations.toml` for the rules marked in the template's own scripts (`mutate.py`, `imperative.py`) | A change to one of those scripts here | They are guarded where the template keeps them, and are unchanged here |
 | `pre-commit` as a requirement rather than an option | A second contributor | The gates run in CI, and a hook one person installs is a hook one person maintains |

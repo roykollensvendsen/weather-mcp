@@ -89,6 +89,10 @@ jobs:
         run: uv run ruff check . && uv run ruff format --check .
       - name: Types
         run: uv run mypy src
+      - name: Nothing private in any commit
+        # No private list or config exists here, so this checks the patterns:
+        # home-network addresses, street addresses and exact coordinates.
+        run: python scripts/private_data_scan.py --tracked --history
       - name: The rules that guard the rules
         # Coverage is measured and printed, with no threshold yet: a number
         # picked before there is data is a guess with a gate on it.
