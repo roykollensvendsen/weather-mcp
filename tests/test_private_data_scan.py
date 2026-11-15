@@ -2,6 +2,7 @@
 
 import os
 import pathlib
+import subprocess
 import sys
 
 import pytest
@@ -56,11 +57,36 @@ def test_homes_name_is_never_committed(tmp_path):
     assert private_data_scan.offences("the weather in heimstad", found)
 
 
-def test_the_home_point_on_one_line_is_refused(tmp_path):
+def test_the_home_point_within_three_lines_is_refused(tmp_path):
     found, home = _home(tmp_path)
-    assert home == ("62.35", "7.89")
     assert private_data_scan.offences("params lat=62.35 lon=7.89", found, home)
-    assert private_data_scan.offences("lat 62.35\nlon 7.89", found, home) == []
+    # A pasted config, as TOML and as JSON, holds lat and lon on lines of their own.
+    assert private_data_scan.offences("[home]\nlat = 62.35\nlon = 7.89\n", found, home)
+    assert private_data_scan.offences('{\n  "lat": 62.35,\n  "lon": 7.89\n}', found, home)
+    assert private_data_scan.offences("lat 62.35\n" + "\n" * 9 + "lon 7.89", found, home) == []
+
+
+def test_home_is_refused_cut_off_or_with_a_decimal_comma(tmp_path):
+    found, home = _home(tmp_path)
+    assert private_data_scan.offences("lat = 62.34\nlon = 7.89", found, home), "62.3456 cut off"
+    assert private_data_scan.offences("hjemme ved 62,35 og 7,89", found, home)
+
+
+def test_a_made_up_home_passes(tmp_path):
+    found, home = _home(tmp_path)
+    assert private_data_scan.offences("[home]\nlat = 61.00\nlon = 9.00\n", found, home) == []
+
+
+def test_a_commit_is_scanned_as_staged(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    for args in (["init", "-q"], ["config", "user.email", "t@example.org"], ["config", "user.name", "t"]):
+        subprocess.run(["git", *args], cwd=repo, check=True)
+    (repo / "notes.txt").write_text("lat = " + "61.98" + "765\n")
+    subprocess.run(["git", "add", "notes.txt"], cwd=repo, check=True)
+    (repo / "notes.txt").write_text("nothing here\n")  # cleaned on disk, not in what is staged
+    monkeypatch.setattr(private_data_scan, "ROOT", repo)
+    assert private_data_scan.main(["--words", str(NONE), "--config", str(NONE)]) == 1
 
 
 def test_ordinary_text_and_documentation_addresses_are_allowed():
@@ -122,3 +148,10 @@ def test_a_private_list_nobody_may_read_refuses_the_commit(tmp_path, capsys):
     said = capsys.readouterr().err
     assert "private.toml can't be read" in said
     assert "Traceback" not in said
+
+
+def test_a_missing_config_or_list_is_said_plainly(capsys):
+    assert _clean_run("--tracked") == 0
+    said = capsys.readouterr().err
+    assert f"home not checked: no config at {NONE}" in said
+    assert f"private words not checked: no list at {NONE}" in said

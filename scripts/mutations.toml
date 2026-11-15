@@ -118,7 +118,19 @@ find = 'if not set\(NUMBER\.findall\(m\.group\(\)\)\) <= MADE_UP'
 replace = 'if True'
 
 [[rule]]
-name = "the home point on one line is refused"
+name = "the home point within three lines is refused"
 file = "scripts/private_data_scan.py"
-find = 'if lat in line and lon in line'
-replace = 'if False'
+find = 'abs\(i - j\) <= NEAR'
+replace = 'i == j'
+
+[[rule]]
+name = "a missing config or list is said plainly"
+file = "scripts/private_data_scan.py"
+find = 'if not os\.path\.lexists\(path\):  # a link'
+replace = 'if False:'
+
+[[rule]]
+name = "a commit is scanned as staged"
+file = "scripts/private_data_scan.py"
+find = 'if \(text := _staged\(name\)\) is not None\]'
+replace = 'return [(name, (ROOT / name).read_text()) for name in staged]'

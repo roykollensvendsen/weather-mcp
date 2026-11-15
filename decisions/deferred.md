@@ -13,4 +13,5 @@ read whenever a decision record is written and when a phase ends.
 | `CODEOWNERS` | A second person who reviews | It would name one person as the owner of everything |
 | Rain for the next two hours in `weather_now`, from MET's radar nowcast | The walking skeleton merged into main | One product at a time keeps the first review small |
 | Rows in `scripts/mutations.toml` for the rules marked in the template's own scripts (`mutate.py`, `imperative.py`) | A change to one of those scripts here | They are guarded where the template keeps them, and are unchanged here |
+| A hook that runs the private-data scan with home and the private list before each push | `pre-commit` made a requirement, or a second machine that commits here | CI has no config, so only the patterns run there; the owner runs the full scan by hand, and the scan says plainly what it could not check |
 | `pre-commit` as a requirement rather than an option | A second contributor | The gates run in CI, and a hook one person installs is a hook one person maintains |
