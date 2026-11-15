@@ -6,8 +6,10 @@ time, never in UTC.
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 import zoneinfo
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -113,6 +115,105 @@ def _sentence(answer: Answer, where: str) -> str:
     return say
 
 
+#: The days a forecast can be asked for, by how many days ahead they are.
+DAYS = {"today": 0, "tomorrow": 1}
+#: The parts of a day said, by the Oslo hour each begins and ends.
+PARTS = (("in the morning", 6, 12), ("at midday", 12, 17), ("in the evening", 17, 23))
+
+
+@dataclass(frozen=True)
+class Hour:
+    """One hour of MET's forecast, by Oslo time, with what this plugin says of it."""
+
+    at: dt.datetime
+    temperature: float
+    wind: float
+    rain: float
+    symbol: str
+
+
+def _hours_on(series: list[dict[str, Any]], date: dt.date, *, after: dt.datetime) -> list[Hour]:
+    """The hours MET gives for `date` in Oslo, from the hour that is now on."""
+    hours = []
+    for entry in series:
+        at = dt.datetime.fromisoformat(entry["time"]).astimezone(OSLO)
+        # RULE: a forecast holds only its own day
+        if at.date() != date:
+            continue
+        # RULE: today leaves out what has passed
+        if at < after.replace(minute=0, second=0, microsecond=0):
+            continue
+        data = entry["data"]
+        later = data.get("next_1_hours") or data.get("next_6_hours") or {}
+        details = data["instant"]["details"]
+        hours.append(
+            Hour(
+                at=at,
+                temperature=float(details["air_temperature"]),
+                wind=float(details.get("wind_speed", 0.0)),
+                rain=float(later.get("details", {}).get("precipitation_amount", 0.0)),
+                symbol=str(later.get("summary", {}).get("symbol_code", "")),
+            )
+        )
+    return hours
+
+
+def _span(low: float, high: float) -> str:
+    def said(value: int) -> str:
+        return f"minus {-value}" if value < 0 else str(value)
+
+    low_, high_ = round(low), round(high)
+    if low_ == high_:
+        return f"{said(low_)} degree" if abs(low_) == 1 else f"{said(low_)} degrees"
+    return f"{said(low_)} to {said(high_)} degrees"
+
+
+def _falls(hours: list[Hour]) -> str:
+    """What comes down, in a word: rain, sleet, snow, or rain and snow when mixed."""
+    kinds = {m["falls"] for h in hours if (m := SYMBOL.match(h.symbol.split("_")[0])) is not None}
+    return kinds.pop() if len(kinds) == 1 else "rain and snow" if kinds else "rain"
+
+
+def _amount(hours: list[Hour]) -> str:
+    total, falls = sum(h.rain for h in hours), _falls(hours)
+    if total == 0:
+        return f"no {falls}"
+    whole = round(total)
+    if whole == 0:
+        return f"a little {falls}"
+    return f"{whole} {'millimetre' if whole == 1 else 'millimetres'} of {falls}"
+
+
+def _main_sky(hours: list[Hour], start: int, end: int) -> str:
+    """The sky said most often between two Oslo hours, or "" when none is known."""
+    skies = [said for h in hours if start <= h.at.hour < end and (said := sky_words(h.symbol))]
+    return max(skies, key=skies.count) if skies else ""
+
+
+def _parts(hours: list[Hour]) -> str:
+    """The main sky in each part of the day still to come, or one sky for all of it."""
+    said = [(name, sky) for name, start, end in PARTS if (sky := _main_sky(hours, start, end))]
+    skies = {sky for _, sky in said}
+    if len(said) == len(PARTS) and len(skies) == 1:
+        return f"{skies.pop()} all day"
+    return _listed([f"{sky} {name}" for name, sky in said])
+
+
+def _listed(words: list[str]) -> str:
+    """Words said as a list: "a", "a and b", "a, b and c"."""
+    return " and ".join([", ".join(words[:-1]), words[-1]]) if len(words) > 1 else "".join(words)
+
+
+def _day_sentence(hours: list[Hour]) -> str:
+    temperatures = [h.temperature for h in hours]
+    wind = round(max(h.wind for h in hours))
+    unit = "metre" if wind == 1 else "metres"
+    span = _span(min(temperatures), max(temperatures))
+    say = f"{span}, {_amount(hours)} and wind up to {wind} {unit} a second"
+    parts = _parts(hours)
+    return f"{say}; {parts}." if parts else f"{say}."
+
+
 #: The longest place name said back, in letters. Names longer than this are cut, not refused.
 ECHO = 40
 
@@ -152,6 +253,30 @@ class Weather:
         if isinstance(answer, str):
             return {"success": False, "say": answer}
         say = _sentence(answer, _spoken(where)) + _rough(where, accuracy_m)
+        return {"success": True, "say": say, "place": where.name}
+
+    async def forecast(
+        self,
+        day: str = "tomorrow",
+        place: str | None = None,
+        *,
+        lat: float | None = None,
+        lon: float | None = None,
+        accuracy_m: float | None = None,
+    ) -> dict[str, Any]:
+        """Today or tomorrow in one sentence: the range, rain, wind and the day in three parts."""
+        where = await self._resolve(place, lat, lon)
+        if isinstance(where, str):
+            return {"success": False, "say": where}
+        answer = await self._fetch(where)
+        if isinstance(answer, str):
+            return {"success": False, "say": answer}
+        today = self._cache.now().astimezone(OSLO)
+        date = today.date() + dt.timedelta(days=DAYS[day])
+        hours = _hours_on(answer.data["properties"]["timeseries"], date, after=today)
+        if not hours:
+            return {"success": False, "say": f"MET has no forecast for {day} yet."}
+        say = f"{day.capitalize()} {_spoken(where)}: {_day_sentence(hours)}" + _rough(where, accuracy_m)
         return {"success": True, "say": say, "place": where.name}
 
     async def _resolve(self, place: str | None, lat: float | None, lon: float | None) -> Place | str:

@@ -1,0 +1,5 @@
+[[rule]]
+name = "a forecast holds only its own day"
+file = "src/weather_mcp/weather.py"
+find = '^        if at\.date\(\) != date:$'
+replace = 'if False:'

@@ -5,13 +5,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
 if TYPE_CHECKING:
+    from collections.abc import Coroutine
+
     from weather_mcp.weather import Weather
 
 INSTRUCTIONS = (
@@ -69,9 +71,23 @@ def hide_query_strings() -> None:
 
 
 def build_server(weather: Weather, *, answer_within: float = ANSWER_WITHIN) -> MCPServer[Any]:
-    """The MCP server with weather_now."""
+    """The MCP server with weather_now and weather_forecast."""
     hide_query_strings()
     server: MCPServer[Any] = MCPServer(name="weather", instructions=INSTRUCTIONS)
+
+    async def _within(tool: str, asked: Coroutine[Any, Any, dict[str, Any]]) -> dict[str, Any]:
+        """The tool's answer, or a sentence when it is too slow or anything inside breaks."""
+        try:
+            # RULE: every answer comes within the deadline
+            return await asyncio.wait_for(asked, answer_within)
+        except TimeoutError:
+            return {"success": False, "say": SLOW}
+        except Exception as failure:  # noqa: BLE001 - whatever broke, the voice gets a sentence
+            # RULE: a failure logs no coordinates
+            # Only the kind of failure: its message or traceback can carry the
+            # request's URL, and for home that URL is the home point.
+            logging.getLogger(__name__).error("%s failed: %s", tool, type(failure).__name__)  # noqa: TRY400
+            return {"success": False, "say": BROKE}
 
     @server.tool(
         annotations=LOOKS,
@@ -88,17 +104,28 @@ def build_server(weather: Weather, *, answer_within: float = ANSWER_WITHIN) -> M
             float | None, Field(description="How exact the phone's position is, in metres.")
         ] = None,
     ) -> dict[str, Any]:
-        try:
-            asked = weather.now(place, lat=lat, lon=lon, accuracy_m=accuracy_m)
-            # RULE: every answer comes within the deadline
-            return await asyncio.wait_for(asked, answer_within)
-        except TimeoutError:
-            return {"success": False, "say": SLOW}
-        except Exception as failure:  # noqa: BLE001 - whatever broke, the voice gets a sentence
-            # RULE: a failure logs no coordinates
-            # Only the kind of failure: its message or traceback can carry the
-            # request's URL, and for home that URL is the home point.
-            logging.getLogger(__name__).error("weather_now failed: %s", type(failure).__name__)  # noqa: TRY400
-            return {"success": False, "say": BROKE}
+        return await _within("weather_now", weather.now(place, lat=lat, lon=lon, accuracy_m=accuracy_m))
+
+    @server.tool(
+        annotations=LOOKS,
+        description="The forecast for today or tomorrow, in one sentence: the temperature range,"
+        " rain, wind, and the sky in the morning, at midday and in the evening. Send the phone's"
+        " position as lat, lon and accuracy_m when you have it; a named place comes first, and"
+        " with neither it is home. Data from MET Norway and Kartverket.",
+    )
+    async def weather_forecast(
+        day: Annotated[
+            Literal["today", "tomorrow"], Field(description="The day asked about; tomorrow if not said.")
+        ] = "tomorrow",
+        place: str | None = None,
+        lat: Annotated[float | None, Field(description="The phone's latitude, if known.")] = None,
+        lon: Annotated[float | None, Field(description="The phone's longitude, if known.")] = None,
+        accuracy_m: Annotated[
+            float | None, Field(description="How exact the phone's position is, in metres.")
+        ] = None,
+    ) -> dict[str, Any]:
+        return await _within(
+            "weather_forecast", weather.forecast(day, place, lat=lat, lon=lon, accuracy_m=accuracy_m)
+        )
 
     return server

@@ -266,6 +266,10 @@ class CachedClient:
                 part.unlink()
             raise
 
+    def now(self) -> dt.datetime:
+        """The time by this cache's clock, so answers and expiry agree on it."""
+        return self._clock()
+
     def _mark(self, key: str, *, on_disk: bool) -> None:
         """Note whether `key` may be written to the file; asked once with on_disk, it may."""
         if on_disk:

@@ -38,6 +38,10 @@ class Voice:
         result = self.loop.run_until_complete(self.server.call_tool("weather_now", arguments))
         return result.structured_content
 
+    def forecast(self, **asked) -> dict:
+        result = self.loop.run_until_complete(self.server.call_tool("weather_forecast", asked))
+        return result.structured_content
+
     def tools(self):
         return {t.name: t for t in self.loop.run_until_complete(self.server.list_tools())}
 

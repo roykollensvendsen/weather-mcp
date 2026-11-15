@@ -14,6 +14,7 @@ import asyncio
 import datetime as dt
 import email.utils
 import json
+import zoneinfo
 from dataclasses import dataclass, field
 
 import httpx
@@ -58,6 +59,33 @@ def forecast(temperature: float = 7.0, symbol: str = "cloudy", rain: float = 0.0
             ],
         },
     }
+
+
+def hourly(at, start: dt.datetime = START, hours: int = 60) -> dict[str, object]:
+    """A forecast an hour apart, as MET gives for the first days.
+
+    `at(local)` gives temperature, symbol, rain and wind for each hour, by Oslo time.
+    """
+    oslo = zoneinfo.ZoneInfo("Europe/Oslo")
+    series = []
+    for n in range(hours):
+        time = start + dt.timedelta(hours=n)
+        temperature, symbol, rain, wind = at(time.astimezone(oslo))
+        series.append(
+            {
+                "time": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "data": {
+                    "instant": {"details": {"air_temperature": temperature, "wind_speed": wind}},
+                    "next_1_hours": {
+                        "summary": {"symbol_code": symbol},
+                        "details": {"precipitation_amount": rain},
+                    },
+                },
+            }
+        )
+    body = forecast()
+    body["properties"]["timeseries"] = series  # type: ignore[index]
+    return body
 
 
 #: Kartverket's type codes, which its /sted filter takes (read 2026-11-15).
