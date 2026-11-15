@@ -58,6 +58,7 @@ All checks passed!
 ```bash
 uv run ruff format --check .   # layout
 uv run mypy src                # types
+python scripts/private_data_scan.py --tracked --history   # nothing private, ever
 uv run pytest -q               # behaviour
 python scripts/mutate.py       # that each rule's own test can fail
 ```

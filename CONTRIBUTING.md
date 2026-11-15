@@ -25,9 +25,18 @@ because they are the same lines:
 ```
 uv run ruff check . && uv run ruff format --check .
 uv run mypy src
+python scripts/private_data_scan.py --tracked --history
 uv run pytest -q --cov
 committed --no-merge-commit origin/main..HEAD
 ```
+
+The private-data scan refuses a home-network address, a street address and
+coordinates more exact than two decimals. On your own machine it also refuses
+home: its name, and its latitude and longitude on one line, as your
+`~/.config/weather-mcp/config.toml` sets them. It refuses each word in
+`~/.config/weather-mcp/private.toml` too, a list kept outside the repository.
+A file it cannot read stops it, rather than letting it check nothing. It names
+what it found by kind and line, never by quoting it.
 
 Run them after the last edit, not before it. A file edited after the format
 gate ran will fail in continuous integration, which is the cheapest possible

@@ -30,10 +30,15 @@ def _mutate():
     return module
 
 
+#: The repository's own checks that this repository wrote. The scripts that came from
+#: the template mark rules of their own with no rows here yet; decisions/deferred.md says when.
+OWN_SCRIPTS = (ROOT / "scripts/private_data_scan.py",)
+
+
 def marked_rules() -> set[str]:
     """Every rule the source marks, by the words the marker gives it."""
     found = set()
-    for source in sorted((ROOT / "src").rglob("*.py")):
+    for source in [*sorted((ROOT / "src").rglob("*.py")), *OWN_SCRIPTS]:
         for line in source.read_text().splitlines():
             match = MARKER.search(line)
             if match:
