@@ -1,0 +1,5 @@
+[[rule]]
+name = "a position is never logged"
+file = "src/weather_mcp/server.py"
+find = '^        record\.msg, record\.args = QUERY\.sub\('
+replace = 'pass'

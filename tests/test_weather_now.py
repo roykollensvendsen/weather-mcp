@@ -200,8 +200,20 @@ def test_a_named_place_comes_before_the_position():
         voice.close()
 
 
-def test_without_a_whole_position_home_is_the_fallback():
-    assert ask(position={"lat": 61.3712})["say"] == "7 degrees and cloudy in Testheim."
+def test_half_a_position_is_said_and_never_taken_for_home():
+    """'Here' answered for home would be wrong without saying so; MET is not asked."""
+    voice = Voice()
+    try:
+        answer = voice.now(lat=61.3712)
+        assert not answer["success"]
+        assert "position" in answer["say"]
+        assert voice.api.forecast_requests() == []
+    finally:
+        voice.close()
+
+
+def test_with_no_position_home_is_the_fallback():
+    assert ask()["say"] == "7 degrees and cloudy in Testheim."
 
 
 def test_a_position_needs_no_home():
@@ -242,3 +254,17 @@ def test_the_tool_asks_the_voice_for_the_phones_position():
         assert "phone's position" in tool.description
     finally:
         voice.close()
+
+
+def test_a_failed_request_carries_the_position_nowhere(caplog):
+    """The errors httpx raises carry the whole request, and its address holds the position."""
+    caplog.set_level(logging.DEBUG)
+    voice = Voice(FakeApi(refuse_connection=True))
+    try:
+        answer = voice.now(**PHONE)
+    finally:
+        voice.close()
+    assert not answer["success"]
+    for seen in (caplog.text, str(answer)):
+        assert "61.37" not in seen
+        assert "9.42" not in seen

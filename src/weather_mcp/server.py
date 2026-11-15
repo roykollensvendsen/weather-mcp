@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import TYPE_CHECKING, Annotated, Any
 
 from mcp.server.mcpserver import MCPServer
@@ -28,8 +29,31 @@ ANSWER_WITHIN = 12.0
 SLOW = "MET is slow to answer just now. Ask again in a moment."
 
 
+#: A query string in a logged address: for MET it holds the point, home's or the phone's.
+QUERY = re.compile(r"\?[^\s\"']*")
+
+
+class NoQueryStrings(logging.Filter):
+    """Cut the query string out of every address a log line holds, and keep the line."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Rewrite the line without its query strings; never drop it."""
+        # RULE: a position is never logged
+        record.msg, record.args = QUERY.sub("?…", record.getMessage()), None
+        return True
+
+
+def hide_query_strings() -> None:
+    """Put the filter on the loggers that write request addresses, once."""
+    for name in ("httpx", "httpcore"):
+        library = logging.getLogger(name)
+        if not any(isinstance(f, NoQueryStrings) for f in library.filters):
+            library.addFilter(NoQueryStrings())
+
+
 def build_server(weather: Weather, *, answer_within: float = ANSWER_WITHIN) -> MCPServer[Any]:
     """The MCP server with weather_now."""
+    hide_query_strings()
     server: MCPServer[Any] = MCPServer(name="weather", instructions=INSTRUCTIONS)
 
     @server.tool(

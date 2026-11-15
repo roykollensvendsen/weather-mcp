@@ -122,6 +122,8 @@ class FakeApi:
     broken: int | None = None
     #: Fail inside the client with a message carrying the full URL, as a library bug might.
     crash: bool = False
+    #: Refuse the connection, as when MET is unreachable; the error carries the request.
+    refuse_connection: bool = False
     #: Seconds every answer takes, as when a service is slow.
     delay: float = 0
     expires_after_minutes: float = 30
@@ -156,6 +158,9 @@ class FakeApi:
             value = request.url.params.get(key, "")
             if "." in value and len(value.split(".")[1]) > 4:
                 return httpx.Response(403, text="Too many decimals")
+        if self.refuse_connection:
+            msg = f"connection refused asking {request.url}"
+            raise httpx.ConnectError(msg, request=request)
         if self.crash:
             msg = f"unexpected failure asking {request.url}"
             raise RuntimeError(msg)
