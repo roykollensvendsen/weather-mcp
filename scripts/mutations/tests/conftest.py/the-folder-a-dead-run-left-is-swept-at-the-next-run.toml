@@ -1,0 +1,5 @@
+[[rule]]
+name = "the folder a dead run left is swept at the next run"
+file = "tests/conftest.py"
+find = '^            remove\(path\)$'
+replace = 'pass'
