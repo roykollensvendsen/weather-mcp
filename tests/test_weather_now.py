@@ -154,3 +154,9 @@ def test_a_refusal_names_the_contact_setting():
     assert not answer["success"]
     assert answer["say"].startswith("MET refused the request.")
     assert "contact" in answer["say"]
+
+
+def test_an_echoed_place_is_one_short_line():
+    answer = ask("Ingen\nstad " + "x" * 200)
+    assert "\n" not in answer["say"]
+    assert len(answer["say"]) < 160
