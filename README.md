@@ -29,6 +29,10 @@ lon = 0.00
 
 Home stays in that file. It is never in this repository, its tests or its logs.
 
+Forecasts are kept in `~/.cache/weather-mcp/forecasts.json`, so a restart never asks MET
+again too early. Only you can read it. It holds each point asked about, rounded, home
+included. Delete it at any time; it is rebuilt.
+
 Then start the server for a voice session:
 
 ```console

@@ -23,7 +23,7 @@ def user_agent(config: Config) -> str:
 async def _serve(config: Config) -> None:  # pragma: no cover - runs until stdin closes
     import httpx  # noqa: PLC0415 - only serving needs the network and the MCP server
 
-    from weather_mcp.cache import CachedClient  # noqa: PLC0415
+    from weather_mcp.cache import CachedClient, cache_path  # noqa: PLC0415
     from weather_mcp.places import PlaceFinder  # noqa: PLC0415
     from weather_mcp.server import build_server  # noqa: PLC0415
     from weather_mcp.weather import Weather  # noqa: PLC0415
@@ -31,7 +31,8 @@ async def _serve(config: Config) -> None:  # pragma: no cover - runs until stdin
     agent = user_agent(config)
     # Two requests in a row for a named place, each well inside the voice's deadline.
     async with httpx.AsyncClient(timeout=5) as http:
-        weather = Weather(config, CachedClient(http, agent), PlaceFinder(http, agent))
+        cache = CachedClient(http, agent, store=cache_path())
+        weather = Weather(config, cache, PlaceFinder(http, agent))
         await build_server(weather).run_stdio_async()
 
 

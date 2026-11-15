@@ -3,13 +3,20 @@
 MET's terms ask each client to be a "local proxy". It must never ask again before
 `Expires`, must then ask with `If-Modified-Since`, and must cut traffic at once on
 a 429. See ADR-WM-001.
+
+What it holds is kept in a file, so a restart neither forgets a forecast's
+expiry nor a pause MET asked for.
 """
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import email.utils
+import json
 import logging
+import os
+import pathlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -22,6 +29,12 @@ log = logging.getLogger(__name__)
 
 #: How long to hold off after a 429 that gives no Retry-After.
 HOLD_OFF = dt.timedelta(minutes=10)
+
+
+def cache_path() -> pathlib.Path:
+    """Where forecasts are kept between runs, under the user's cache folder."""
+    base = os.environ.get("XDG_CACHE_HOME") or str(pathlib.Path.home() / ".cache")
+    return pathlib.Path(base) / "weather-mcp" / "forecasts.json"
 
 
 class UpstreamError(Exception):
@@ -99,13 +112,69 @@ class CachedClient:
     """GETs JSON, answering from what it holds whenever MET's rules say to."""
 
     def __init__(
-        self, http: httpx.AsyncClient, user_agent: str, clock: Callable[[], dt.datetime] = _now
+        self,
+        http: httpx.AsyncClient,
+        user_agent: str,
+        clock: Callable[[], dt.datetime] = _now,
+        store: pathlib.Path | None = None,
     ) -> None:
-        """Wrap an open client; every request carries the given User-Agent."""
-        self._http, self._agent, self._clock = http, user_agent, clock
+        """Wrap an open client; every request carries the given User-Agent.
+
+        With a store, what the cache holds is read from it now and written to it
+        after every change. Without one, it lives in memory only.
+        """
+        self._http, self._agent, self._clock, self._store = http, user_agent, clock, store
         self._kept: dict[str, _Kept] = {}
         #: Until when MET asked us to stop asking; it covers every point, not one.
         self._held_until: dt.datetime | None = None
+        # RULE: a restart keeps what the cache held
+        self._load()
+
+    def _load(self) -> None:
+        if self._store is None or not self._store.is_file():
+            return
+        try:
+            raw = json.loads(self._store.read_bytes())
+            kept = {
+                key: _Kept(
+                    entry["data"],
+                    dt.datetime.fromisoformat(entry["fetched"]),
+                    dt.datetime.fromisoformat(entry["expires"]),
+                    entry.get("last_modified"),
+                )
+                for key, entry in raw["kept"].items()
+            }
+            held = raw.get("held_until")
+            held_until = dt.datetime.fromisoformat(held) if held else None
+        except (ValueError, KeyError, TypeError, AttributeError):
+            log.warning("the forecast cache file was damaged; starting afresh")
+            return
+        self._kept, self._held_until = kept, held_until
+
+    def _save(self) -> None:
+        """Write what the cache holds, readable by the owner only, never half-written."""
+        if self._store is None:
+            return
+        body = {
+            "held_until": self._held_until.isoformat() if self._held_until else None,
+            "kept": {
+                key: {
+                    "data": k.data,
+                    "fetched": k.fetched.isoformat(),
+                    "expires": k.expires.isoformat(),
+                    "last_modified": k.last_modified,
+                }
+                for key, k in self._kept.items()
+            },
+        }
+        self._store.parent.mkdir(parents=True, exist_ok=True)
+        part = self._store.with_suffix(".part")
+        with contextlib.suppress(FileNotFoundError):
+            part.unlink()
+        fd = os.open(part, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as file:
+            file.write(json.dumps(body).encode())
+        part.replace(self._store)
 
     async def get_json(self, url: str, params: Mapping[str, str]) -> Answer:
         """The JSON at url, from the cache when it is still current."""
@@ -125,10 +194,12 @@ class CachedClient:
         status = response.status_code
         if status == 304 and kept is not None:  # noqa: PLR2004 - HTTP's own number
             kept.expires = _expires(response, now)
+            self._save()
             return Answer(kept.data, kept.fetched)
         if status == 429:  # noqa: PLR2004 - HTTP's own number
             self._held_until = _hold_off(response, now)
             log.warning("MET asked us to slow down until %s", f"{self._held_until:%H:%M} UTC")
+            self._save()
             return _slowed(kept)
         if status == 203:  # noqa: PLR2004 - HTTP's own number
             log.warning("deprecated or beta product: %s", url)
@@ -139,4 +210,5 @@ class CachedClient:
             raise UpstreamError(status)
         data = response.json()
         self._kept[key] = _Kept(data, now, _expires(response, now), response.headers.get("last-modified"))
+        self._save()
         return Answer(data, now)
