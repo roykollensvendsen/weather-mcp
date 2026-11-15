@@ -75,10 +75,25 @@ def hide_query_strings() -> None:
         logging.getLogger(name).addFilter(NO_QUERY_STRINGS)
 
 
-def build_server(weather: Weather, *, answer_within: float = ANSWER_WITHIN) -> MCPServer[Any]:
-    """The MCP server with weather_now and weather_forecast."""
+#: What a simulated server tells the voice first, and what each of its answers starts with.
+SIMULATED = "SIMULATED: this is made-up weather, not MET's. Say so when you report it. "
+SAID_SIMULATED = "Simulated: "
+
+
+def build_server(
+    weather: Weather, *, answer_within: float = ANSWER_WITHIN, simulated: bool = False
+) -> MCPServer[Any]:
+    """The MCP server with weather_now and weather_forecast; made-up, and saying so, if simulated."""
     hide_query_strings()
-    server: MCPServer[Any] = MCPServer(name="weather", instructions=INSTRUCTIONS)
+    server: MCPServer[Any] = MCPServer(
+        name="weather-simulated" if simulated else "weather",
+        instructions=SIMULATED + INSTRUCTIONS if simulated else INSTRUCTIONS,
+    )
+
+    async def _answer(tool: str, asked: Coroutine[Any, Any, dict[str, Any]]) -> dict[str, Any]:
+        answer = await _within(tool, asked)
+        # RULE: every simulated answer says simulated first
+        return {**answer, "say": SAID_SIMULATED + answer["say"]} if simulated else answer
 
     async def _within(tool: str, asked: Coroutine[Any, Any, dict[str, Any]]) -> dict[str, Any]:
         """The tool's answer, or a sentence when it is too slow or anything inside breaks."""
@@ -107,7 +122,7 @@ def build_server(weather: Weather, *, answer_within: float = ANSWER_WITHIN) -> M
         lon: Lon = None,
         accuracy_m: Accuracy = None,
     ) -> dict[str, Any]:
-        return await _within("weather_now", weather.now(place, lat=lat, lon=lon, accuracy_m=accuracy_m))
+        return await _answer("weather_now", weather.now(place, lat=lat, lon=lon, accuracy_m=accuracy_m))
 
     @server.tool(
         annotations=LOOKS,
@@ -125,7 +140,7 @@ def build_server(weather: Weather, *, answer_within: float = ANSWER_WITHIN) -> M
         lon: Lon = None,
         accuracy_m: Accuracy = None,
     ) -> dict[str, Any]:
-        return await _within(
+        return await _answer(
             "weather_forecast", weather.forecast(place, day=day, lat=lat, lon=lon, accuracy_m=accuracy_m)
         )
 
