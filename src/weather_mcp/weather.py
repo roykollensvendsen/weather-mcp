@@ -251,31 +251,27 @@ class Weather:
         accuracy_m: float | None = None,
     ) -> dict[str, Any]:
         """The weather right now: at a named place, else at the phone's position, else at home."""
-        where = await self._resolve(place, lat, lon)
-        if isinstance(where, str):
-            return {"success": False, "say": where}
-        answer = await self._fetch(where)
-        if isinstance(answer, str):
-            return {"success": False, "say": answer}
+        found = await self._look_up(place, lat, lon)
+        if isinstance(found, dict):
+            return found
+        where, answer = found
         say = _sentence(answer, _spoken(where)) + _rough(where, accuracy_m)
         return {"success": True, "say": say, "place": where.name}
 
     async def forecast(
         self,
-        day: str = "tomorrow",
         place: str | None = None,
         *,
+        day: str = "tomorrow",
         lat: float | None = None,
         lon: float | None = None,
         accuracy_m: float | None = None,
     ) -> dict[str, Any]:
         """Today or tomorrow in one sentence: the range, rain, wind and the day in three parts."""
-        where = await self._resolve(place, lat, lon)
-        if isinstance(where, str):
-            return {"success": False, "say": where}
-        answer = await self._fetch(where)
-        if isinstance(answer, str):
-            return {"success": False, "say": answer}
+        found = await self._look_up(place, lat, lon)
+        if isinstance(found, dict):
+            return found
+        where, answer = found
         today = self._cache.now().astimezone(OSLO)
         date = today.date() + dt.timedelta(days=DAYS[day])
         hours = _hours_on(answer.data["properties"]["timeseries"], date, after=today)
@@ -286,6 +282,18 @@ class Weather:
             }
         say = f"{day.capitalize()} {_spoken(where)}: {_day_sentence(hours)}" + _rough(where, accuracy_m)
         return {"success": True, "say": say, "place": where.name}
+
+    async def _look_up(
+        self, place: str | None, lat: float | None, lon: float | None
+    ) -> tuple[Place, Answer] | dict[str, Any]:
+        """The place asked about and MET's answer for it, or the refusal to say instead."""
+        where = await self._resolve(place, lat, lon)
+        if isinstance(where, str):
+            return {"success": False, "say": where}
+        answer = await self._fetch(where)
+        if isinstance(answer, str):
+            return {"success": False, "say": answer}
+        return where, answer
 
     async def _resolve(self, place: str | None, lat: float | None, lon: float | None) -> Place | str:
         """A named place, else the phone's position, else home; or the sentence saying why not."""
