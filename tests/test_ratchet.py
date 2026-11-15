@@ -295,3 +295,19 @@ def test_the_base_is_measured_where_no_other_branch_can_be_seen(tmp_path, monkey
     ).stdout
     assert (copy / "notes.txt").read_text() == "main\n"
     assert "under review" not in seen
+
+
+def test_a_second_stop_cannot_cut_the_ratchet_cleanup_short():
+    """GitHub sends SIGINT and then SIGTERM; the second must not stop the copy's removal."""
+    import signal  # noqa: PLC0415
+
+    stops = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
+    kept = {s: signal.getsignal(s) for s in stops}
+    try:
+        ratchet.stop_cleanly()
+        with pytest.raises(SystemExit):
+            signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+        assert all(signal.getsignal(s) is signal.SIG_IGN for s in stops)
+    finally:
+        for s, handler in kept.items():
+            signal.signal(s, handler)
