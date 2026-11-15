@@ -30,6 +30,7 @@ decision nobody writes down.
 | Id | Decides | Status |
 |---|---|---|
 | [ADR-WM-001](ADR-WM-001-call-met-and-kartverket-with-plain-httpx.md) | Call MET Norway and Kartverket with plain httpx | Accepted |
+| [ADR-WM-002](ADR-WM-002-main-keeps-the-quality-levels.md) | Main keeps the quality levels, so a pull request never records them | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing
