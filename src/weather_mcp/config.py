@@ -61,7 +61,8 @@ def load_config(path: pathlib.Path) -> Config:
     if not path.is_file():
         msg = f"No config at {path}. Write one like this:\n{EXAMPLE}"
         raise ConfigError(msg)
-    raw = tomllib.loads(path.read_text())
+    with path.open("rb") as file:  # TOML is UTF-8 by its own spec, whatever the locale says
+        raw = tomllib.load(file)
     contact = str(raw.get("contact") or "").strip()
     # RULE: the contact has no default
     if not contact:
