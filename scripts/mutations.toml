@@ -74,3 +74,9 @@ name = "every answer comes within the deadline"
 file = "src/weather_mcp/server.py"
 find = 'return await asyncio.wait_for\(weather.now\(place\), answer_within\)'
 replace = 'return await weather.now(place)'
+
+[[rule]]
+name = "a restart keeps what the cache held"
+file = "src/weather_mcp/cache.py"
+find = '^        self._load\(\)$'
+replace = 'pass'
