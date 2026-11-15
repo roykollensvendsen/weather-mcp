@@ -160,7 +160,10 @@ def _git(*args: str) -> str:
 def _texts(*, tracked: bool, history: bool) -> list[tuple[str, str]]:
     """Each place to scan, as (what it is, its text)."""
     if history:
-        return [("the history", _git("log", "-p", "--all", "--no-color", "--format=commit %H%n%B"))]
+        # What lands on the branch: other branches here, such as one under review with
+        # its own made-up numbers, are scanned on their own branch, by their own list.
+        # RULE: the history scanned is what lands on the branch
+        return [("the history", _git("log", "-p", "HEAD", "--no-color", "--format=commit %H%n%B"))]
     if not tracked:
         # What the commit will hold is the staged copy, which may differ from the file on disk.
         # RULE: a commit is scanned as staged

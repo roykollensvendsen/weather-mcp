@@ -89,6 +89,42 @@ def test_a_commit_is_scanned_as_staged(tmp_path, monkeypatch):
     assert private_data_scan.main(["--words", str(NONE), "--config", str(NONE)]) == 1
 
 
+def _repo_with_a_branch(tmp_path, *, on_main):
+    """A repository whose side branch holds an exact latitude; main holds `on_main`."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git = [
+        ["init", "-q", "-b", "main"],
+        ["config", "user.email", "t@example.org"],
+        ["config", "user.name", "t"],
+    ]
+    for args in git:
+        subprocess.run(["git", *args], cwd=repo, check=True)
+
+    def commit(text):
+        (repo / "notes.txt").write_text(text)
+        subprocess.run(["git", "add", "notes.txt"], cwd=repo, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "notes"], cwd=repo, check=True)
+
+    commit(on_main)
+    subprocess.run(["git", "switch", "-q", "-c", "side"], cwd=repo, check=True)
+    commit("lat = " + "61.98" + "765\n")
+    subprocess.run(["git", "switch", "-q", "main"], cwd=repo, check=True)
+    return repo
+
+
+def test_the_history_scanned_is_what_lands_on_the_branch(tmp_path, monkeypatch):
+    """A branch under review holds its own made-up numbers; main's scan must not read them."""
+    monkeypatch.setattr(private_data_scan, "ROOT", _repo_with_a_branch(tmp_path, on_main="nothing\n"))
+    assert private_data_scan.main(["--history", "--words", str(NONE), "--config", str(NONE)]) == 0
+
+
+def test_the_branch_own_history_is_still_scanned(tmp_path, monkeypatch):
+    on_main = "lat = " + "61.97" + "654\n"
+    monkeypatch.setattr(private_data_scan, "ROOT", _repo_with_a_branch(tmp_path, on_main=on_main))
+    assert private_data_scan.main(["--history", "--words", str(NONE), "--config", str(NONE)]) == 1
+
+
 def test_ordinary_text_and_documentation_addresses_are_allowed():
     text = "Bergen and Moen, 192.0.2.10, version 1.2.3.4, 26.90 kroner, lat = 0.00, 61.00, 9.00"
     assert private_data_scan.offences(text, set()) == []
