@@ -37,17 +37,35 @@ async def _serve(config: Config) -> None:  # pragma: no cover - runs until stdin
         await build_server(weather).run_stdio_async()
 
 
+async def _serve_simulated() -> None:  # pragma: no cover - runs until stdin closes
+    from weather_mcp.simulated import simulated_server  # noqa: PLC0415
+
+    async with simulated_server() as server:
+        await server.run_stdio_async()
+
+
 def main(argv: list[str] | None = None) -> int:
     """Parse arguments and dispatch. Returns a process exit code."""
     parser = argparse.ArgumentParser(prog="weather-mcp", description="The weather in Norway, by voice.")
     verbs = parser.add_subparsers(dest="command", metavar="command")
     serve = verbs.add_parser("serve", help="serve the weather tools over stdio")
     serve.add_argument("--config", metavar="FILE", help="the config file, if not the usual one")
+    serve.add_argument(
+        "--simulate", action="store_true", help="use made-up weather and places; touches no network"
+    )
     args = parser.parse_args(argv)
     if args.command is None:
         parser.print_help()
         return 0
-    path = pathlib.Path(args.config).expanduser() if args.config else config_path()
+    if args.simulate:
+        asyncio.run(_serve_simulated())
+        return 0
+    return _serve_real(args.config)
+
+
+def _serve_real(given: str | None) -> int:
+    """Serve with the owner's config, or say why it can't be read."""
+    path = pathlib.Path(given).expanduser() if given else config_path()
     try:
         config = load_config(path)
     except ConfigError as refused:

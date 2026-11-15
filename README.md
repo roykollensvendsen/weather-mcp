@@ -45,12 +45,17 @@ Then start the server for a voice session:
 
 ```console
 $ weather-mcp serve --help
-usage: weather-mcp serve [-h] [--config FILE]
+usage: weather-mcp serve [-h] [--config FILE] [--simulate]
 
 options:
   -h, --help     show this help message and exit
   --config FILE  the config file, if not the usual one
+  --simulate     use made-up weather and places; touches no network
 ```
+
+To try the tools by voice without MET, Kartverket or a config, serve with `--simulate`.
+The weather and the one place, Testheim, are made up, and every answer starts
+"Simulated:".
 
 ## The gates
 

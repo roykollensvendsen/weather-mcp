@@ -1,0 +1,5 @@
+[[rule]]
+name = "every simulated answer says simulated first"
+file = "src/weather_mcp/server.py"
+find = 'return \{\*\*answer, "say": SAID_SIMULATED \+ answer\["say"\]\} if simulated else answer'
+replace = 'return answer'

@@ -1,0 +1,5 @@
+[[rule]]
+name = "a simulated run never touches the network"
+file = "src/weather_mcp/simulated.py"
+find = 'async with httpx\.AsyncClient\(transport=httpx\.MockTransport\(_answer\)\) as http:'
+replace = '    async with httpx.AsyncClient() as http:'
