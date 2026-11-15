@@ -1,0 +1,5 @@
+[[rule]]
+name = "a failed save never stops an answer"
+file = "src/weather_mcp/cache.py"
+find = '^        except OSError as unsaved:$'
+replace = 'except ZeroDivisionError as unsaved:'

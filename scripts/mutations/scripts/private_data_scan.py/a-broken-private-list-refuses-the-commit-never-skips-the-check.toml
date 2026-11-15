@@ -1,0 +1,5 @@
+[[rule]]
+name = "a broken private list refuses the commit never skips the check"
+file = "scripts/private_data_scan.py"
+find = 'if not os\.path\.lexists\(path\):'
+replace = 'if not path.is_file():'

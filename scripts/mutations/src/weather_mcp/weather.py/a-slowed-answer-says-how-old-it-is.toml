@@ -1,0 +1,5 @@
+[[rule]]
+name = "a slowed answer says how old it is"
+file = "src/weather_mcp/weather.py"
+find = 'if answer.slowed:'
+replace = 'if False:'

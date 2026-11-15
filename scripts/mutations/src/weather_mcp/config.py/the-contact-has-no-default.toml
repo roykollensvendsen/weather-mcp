@@ -1,0 +1,5 @@
+[[rule]]
+name = "the contact has no default"
+file = "src/weather_mcp/config.py"
+find = 'if not contact:'
+replace = 'if False:'

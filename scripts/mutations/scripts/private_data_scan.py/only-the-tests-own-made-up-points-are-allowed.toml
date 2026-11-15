@@ -1,0 +1,5 @@
+[[rule]]
+name = "only the tests own made up points are allowed"
+file = "scripts/private_data_scan.py"
+find = 'if not set\(NUMBER\.findall\(m\.group\(\)\)\) <= MADE_UP'
+replace = 'if True'

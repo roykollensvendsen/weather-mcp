@@ -1,0 +1,5 @@
+[[rule]]
+name = "a 429 answers from the cache"
+file = "src/weather_mcp/cache.py"
+find = 'if kept is None:'
+replace = 'if True:'

@@ -1,0 +1,5 @@
+[[rule]]
+name = "a restart keeps what the cache held"
+file = "src/weather_mcp/cache.py"
+find = '^        self._load\(\)$'
+replace = 'pass'

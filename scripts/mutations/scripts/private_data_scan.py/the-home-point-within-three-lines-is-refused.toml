@@ -1,0 +1,5 @@
+[[rule]]
+name = "the home point within three lines is refused"
+file = "scripts/private_data_scan.py"
+find = 'abs\(i - j\) <= NEAR'
+replace = 'i == j'
