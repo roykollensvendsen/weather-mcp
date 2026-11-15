@@ -29,6 +29,7 @@ land in a public log.
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import pathlib
 import re
@@ -78,7 +79,20 @@ def _toml(path: pathlib.Path) -> dict[str, object] | None:
         raise BrokenListError(message) from error
 
 
-def private_values(words: pathlib.Path, config: pathlib.Path) -> tuple[set[str], tuple[str, str] | None]:
+#: Home's latitude and longitude, each in every way it could be written at two decimals.
+Home = tuple[frozenset[str], frozenset[str]]
+#: Home's latitude and longitude count together when this many lines apart or fewer, as in
+#: a pasted config, where ``lat`` and ``lon`` are on lines of their own.
+NEAR = 2
+
+
+def _forms(degrees: float) -> frozenset[str]:
+    """Two decimals, rounded and cut off, with a decimal point or a decimal comma."""
+    numbers = {f"{degrees:.2f}", f"{math.trunc(degrees * 100) / 100:.2f}"}
+    return frozenset(numbers | {n.replace(".", ",") for n in numbers})
+
+
+def private_values(words: pathlib.Path, config: pathlib.Path) -> tuple[set[str], Home | None]:
     """The owner's private words, home's name among them, and home's point."""
     out: set[str] = set()
     listed = (_toml(words) or {}).get("words", [])
@@ -94,11 +108,11 @@ def private_values(words: pathlib.Path, config: pathlib.Path) -> tuple[set[str],
             out.add(name)
         lat, lon = home.get("lat"), home.get("lon")
         if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
-            point = (f"{lat:.2f}", f"{lon:.2f}")
+            point = (_forms(lat), _forms(lon))
     return out, point
 
 
-def offences(text: str, private: set[str], home: tuple[str, str] | None = None) -> list[str]:
+def offences(text: str, private: set[str], home: Home | None = None) -> list[str]:
     """What in ``text`` would say where the owner lives, by kind only."""
     found = [f"line {_line(text, m.start())}: a home-network address" for m in PRIVATE_IPV4.finditer(text)]
     found += [f"line {_line(text, m.start())}: a street address" for m in STREET.finditer(text)]
@@ -119,14 +133,16 @@ def offences(text: str, private: set[str], home: tuple[str, str] | None = None) 
         if at >= 0:
             found.append(f"line {_line(text, at)}: a private word")
     if home is not None:
-        lat, lon = home
-        # RULE: the home point on one line is refused
-        found += [
-            f"line {number}: home's point"
-            for number, line in enumerate(text.splitlines(), 1)
-            if lat in line and lon in line
-        ]
+        found += [f"line {number}: home's point" for number in _home_lines(text, home)]
     return found
+
+
+def _home_lines(text: str, home: Home) -> list[int]:
+    """Each line holding home's latitude with its longitude on it or near it."""
+    lines = text.splitlines()
+    lats, lons = ([i for i, line in enumerate(lines) if any(f in line for f in forms)] for forms in home)
+    # RULE: the home point within three lines is refused
+    return [i + 1 for i in lats if any(abs(i - j) <= NEAR for j in lons)]
 
 
 def _line(text: str, at: int) -> int:
@@ -143,15 +159,28 @@ def _texts(*, tracked: bool, history: bool) -> list[tuple[str, str]]:
     """Each place to scan, as (what it is, its text)."""
     if history:
         return [("the history", _git("log", "-p", "--all", "--no-color", "--format=commit %H%n%B"))]
-    names = _git("ls-files") if tracked else _git("diff", "--cached", "--name-only", "--diff-filter=ACMR")
+    if not tracked:
+        # What the commit will hold is the staged copy, which may differ from the file on disk.
+        # RULE: a commit is scanned as staged
+        staged = _git("diff", "--cached", "--name-only", "--diff-filter=ACMR").splitlines()
+        return [(name, text) for name in staged if (text := _staged(name)) is not None]
     out = []
-    for name in names.splitlines():
-        path = ROOT / name
+    for name in _git("ls-files").splitlines():
         try:
-            out.append((name, path.read_text(encoding="utf-8")))
+            out.append((name, (ROOT / name).read_text(encoding="utf-8")))
         except (FileNotFoundError, IsADirectoryError, UnicodeDecodeError):
             continue
     return out
+
+
+def _staged(name: str) -> str | None:
+    """The staged copy of a file, or None when it is not text."""
+    command = ["git", "show", f":{name}"]
+    done = subprocess.run(command, cwd=ROOT, capture_output=True, check=True)  # noqa: S603
+    try:
+        return done.stdout.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -162,10 +191,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--words", default=str(WORDS), help=f"the private list (default {WORDS})")
     parser.add_argument("--config", default=str(CONFIG), help=f"where home is set (default {CONFIG})")
     args = parser.parse_args(argv)
+    words, config = pathlib.Path(args.words).expanduser(), pathlib.Path(args.config).expanduser()
+    # A clean result must not read as "home was checked" when there was nothing to check it by.
+    for path, what, kind in ((config, "home", "config"), (words, "private words", "list")):
+        # RULE: a missing config or list is said plainly
+        if not os.path.lexists(path):  # a link to a moved file counts as there
+            sys.stderr.write(f"{what} not checked: no {kind} at {path}\n")
     try:
-        private, home = private_values(
-            pathlib.Path(args.words).expanduser(), pathlib.Path(args.config).expanduser()
-        )
+        private, home = private_values(words, config)
     except BrokenListError as error:
         # Refused rather than skipped: a commit checked without the list could publish a word from it.
         sys.stderr.write(f"{error}; fix it, then commit again. Nothing was checked.\n")
