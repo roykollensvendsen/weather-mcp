@@ -71,3 +71,17 @@ def test_the_cache_file_is_private(tmp_path):
 def test_the_cache_lives_under_the_users_cache_folder(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
     assert cache_path() == tmp_path / "weather-mcp" / "forecasts.json"
+
+
+def test_a_failed_save_never_stops_an_answer(tmp_path, caplog):
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0o500)
+    try:
+        answer = ask(FakeApi(), locked / "forecasts.json")
+    finally:
+        locked.chmod(0o700)
+    assert answer.data["type"] == "Feature"
+    assert "PermissionError" in caplog.text
+    assert "is writable" in caplog.text
+    assert "61.00" not in caplog.text
