@@ -57,3 +57,15 @@ def test_the_deferred_list_gives_every_row_a_trigger():
         assert len(cells) == 3, f"a deferred row needs what, the trigger, and why not: {row[:60]}"
         assert cells[1], f"no trigger on: {cells[0]}"
         assert cells[2], f"no reason on: {cells[0]}"
+
+
+def test_every_gate_the_readme_names_runs_in_the_workflow():
+    """The README says every gate it lists runs in CI; a gate left out would run only by hand."""
+    readme = read("README.md")
+    workflow = "\n".join(p.read_text() for p in sorted((ROOT / ".github/workflows").glob("*.yml")))
+    section = readme.split("## The gates", 1)[1]
+    commands = re.findall(r"^(?:\$ )?((?:uv run |python ).+?)(?:\s+#.*)?$", section, re.MULTILINE)
+    assert commands, "the README no longer lists its gates"
+    for command in commands:
+        core = command.removeprefix("uv run ").removeprefix("python ").strip()
+        assert core in workflow, f"the README names `{command}` as a gate and no workflow runs it"
