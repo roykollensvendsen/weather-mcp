@@ -2,9 +2,11 @@
 
 The weather in Norway by voice, from MET Norway's open data, as an MCP server and an optional claude-voice plugin.
 
-It gives a voice session one tool so far, `weather_now(place?)`. With no place it answers
-for home. A place is a name in Norway, as spoken: "Bergen", or "Moen i Agder" when a
-name is shared. The answer is one short sentence to read aloud.
+It gives a voice session one tool so far, `weather_now(place?, lat?, lon?, accuracy_m?)`.
+A place is a name in Norway, as spoken: "Bergen", or "Moen i Agder" when a name is
+shared. The voice sends the phone's position, so "the weather here" is where you are.
+A named place comes first, then the position, then home. The answer is one short
+sentence to read aloud.
 
 Data from MET Norway (NLOD 2.0 and CC BY 4.0), and place names from Kartverket (CC BY 4.0).
 
@@ -27,11 +29,13 @@ lat = 0.00
 lon = 0.00
 ```
 
-Home stays in that file. It is never in this repository, its tests or its logs.
+Home stays in that file. It is never in this repository, its tests or its logs. The
+phone's position is never logged or written anywhere. It is rounded like home before
+MET is asked, and kept in memory only.
 
 Forecasts are kept in `~/.cache/weather-mcp/forecasts.json`, so a restart never asks MET
 again too early. Only you can read it. It holds each point asked about, rounded, home
-included. A place whose forecast expired over a day ago is dropped, except home. Delete
+included, but never the phone's position. A place whose forecast expired over a day ago is dropped, except home. Delete
 the file at any time; it is rebuilt.
 
 Then start the server for a voice session:
