@@ -1,0 +1,5 @@
+[[rule]]
+name = "a position is never written to the cache file"
+file = "src/weather_mcp/cache.py"
+find = '^                if key not in self\._in_memory$'
+replace = 'if True'

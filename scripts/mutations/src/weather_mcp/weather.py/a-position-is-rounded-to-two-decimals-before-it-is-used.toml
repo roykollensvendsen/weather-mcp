@@ -1,0 +1,5 @@
+[[rule]]
+name = "a position is rounded to two decimals before it is used"
+file = "src/weather_mcp/weather.py"
+find = 'return \{"lat": f"\{place\.lat:\.2f\}", "lon": f"\{place\.lon:\.2f\}"\}'
+replace = 'return {"lat": str(place.lat), "lon": str(place.lon)}'

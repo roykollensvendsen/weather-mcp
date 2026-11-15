@@ -13,11 +13,11 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from weather_mcp.cache import RefusedError, SlowedDownError, UpstreamError
-from weather_mcp.config import config_path
+from weather_mcp.config import Place, config_path
 
 if TYPE_CHECKING:
     from weather_mcp.cache import Answer, CachedClient
-    from weather_mcp.config import Config, Place
+    from weather_mcp.config import Config
     from weather_mcp.places import PlaceFinder
 
 FORECAST = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
@@ -65,11 +65,27 @@ def _sky(now: dict[str, Any]) -> str:
     return sky_words(code)
 
 
-def _sentence(answer: Answer, place: Place) -> str:
+#: A phone position less exact than this, in metres, is said to be rough.
+ROUGH_M = 10_000.0
+#: What a phone's position is called in an answer.
+HERE = "where you are"
+
+
+def _position(lat: float | None, lon: float | None) -> Place | str | None:
+    """The phone's position; a sentence when it can't be used; None without one."""
+    if lat is None or lon is None:
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):  # noqa: PLR2004 - the ends of the earth
+        return "I can't use the phone's position, so ask again with a place name."
+    # Rounded once, by point(), for MET and the cache alike.
+    return Place(name=HERE, lat=lat, lon=lon)
+
+
+def _sentence(answer: Answer, where: str) -> str:
     now = answer.data["properties"]["timeseries"][0]
     temperature = _degrees(float(now["data"]["instant"]["details"]["air_temperature"]))
     sky = _sky(now)
-    say = f"{temperature} and {sky} in {place.name}." if sky else f"{temperature} in {place.name}."
+    say = f"{temperature} and {sky} {where}." if sky else f"{temperature} {where}."
     # RULE: a slowed answer says how old it is
     if answer.slowed:
         say += f" The forecast is from {answer.fetched.astimezone(OSLO):%H:%M}; MET asked us to slow down."
@@ -88,6 +104,7 @@ def _echo(place: str) -> str:
 
 def point(place: Place) -> dict[str, str]:
     """The point MET is asked about, exactly as the request and the cache spell it."""
+    # RULE: a position is rounded to two decimals before it is used
     return {"lat": f"{place.lat:.2f}", "lon": f"{place.lon:.2f}"}
 
 
@@ -98,14 +115,25 @@ class Weather:
         """Answer from config's home, or from a name the finder can place."""
         self._config, self._cache, self._places = config, cache, places
 
-    async def now(self, place: str | None = None) -> dict[str, Any]:
-        """The weather right now, at home or at a named place in Norway."""
-        where = await self._where(place)
+    async def now(
+        self,
+        place: str | None = None,
+        *,
+        lat: float | None = None,
+        lon: float | None = None,
+        accuracy_m: float | None = None,
+    ) -> dict[str, Any]:
+        """The weather right now: at a named place, else at the phone's position, else at home."""
+        here = None if place else _position(lat, lon)
+        if isinstance(here, str):
+            return {"success": False, "say": here}
+        where = here or await self._where(place)
         if isinstance(where, str):
             return {"success": False, "say": where}
         params = point(where)
         try:
-            answer = await self._cache.get_json(FORECAST, params)
+            # A position is the phone's own, so it is kept in memory only, never in the file.
+            answer = await self._cache.get_json(FORECAST, params, on_disk=here is None)
         except SlowedDownError:
             return {"success": False, "say": HELD_OFF}
         except RefusedError:
@@ -115,7 +143,10 @@ class Weather:
             }
         except (UpstreamError, httpx.HTTPError):
             return {"success": False, "say": DOWN}
-        return {"success": True, "say": _sentence(answer, where), "place": where.name}
+        say = _sentence(answer, HERE if here else f"in {where.name}")
+        if here and accuracy_m is not None and accuracy_m > ROUGH_M:
+            say += " The phone's position is rough, so this may be off."
+        return {"success": True, "say": say, "place": where.name}
 
     async def _where(self, place: str | None) -> Place | str:
         """The place to ask about, or the sentence saying why there is none."""

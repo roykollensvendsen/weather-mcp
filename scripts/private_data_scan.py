@@ -56,9 +56,10 @@ STREET = re.compile(
 COORDINATES = re.compile(r"\b(?:5[7-9]|6\d|7[0-2])\.\d{3,}\s*,\s*(?:[4-9]|[12]\d|3[0-2])\.\d{3,}\b")
 LATITUDE = re.compile(r"\blat\w*\"?\s*[=:]\s*\"?((?:5[7-9]|6\d|7[0-2])\.\d{3,})")
 #: The made-up numbers the tests use, near 61.00 N 9.00 E on purpose: two places in
-#: tests/fakes.py, and a latitude too exact for MET in tests/test_cache.py. They are in
-#: the history, which cannot be rewritten, so they are named here rather than hidden.
-MADE_UP = frozenset({"61.00412", "9.00377", "61.013", "9.012", "61.00001"})
+#: tests/fakes.py, a latitude too exact for MET in tests/test_cache.py, and a phone's
+#: position in tests/test_weather_now.py. They are in the history, which cannot be
+#: rewritten, so they are named here rather than hidden.
+MADE_UP = frozenset({"61.00412", "9.00377", "61.013", "9.012", "61.00001", "61.3712", "9.4249"})
 NUMBER = re.compile(r"\d+\.\d+")
 
 
