@@ -46,17 +46,13 @@ STOPPED_WHILE_MEASURING = textwrap.dedent(
     spec = importlib.util.spec_from_file_location("ratchet", sys.argv[1])
     ratchet = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ratchet)
-    removed = pathlib.Path(sys.argv[2])
 
     def run(*command, cwd=None, env=None):
-        if command[:3] == ("git", "worktree", "add"):
-            pathlib.Path(command[-2]).mkdir()
-            (pathlib.Path(command[-2]) / "a-file").write_text("the copy of main")
-        elif command[:3] == ("git", "worktree", "remove"):
-            removed.write_text("removed")
+        if command[:2] == ("git", "checkout"):
+            (pathlib.Path(cwd) / "a-file").write_text("the copy of main")
         elif command[:2] == ("uv", "sync"):
             os.kill(os.getpid(), signal.SIGTERM)
-        return subprocess.CompletedProcess(command, 0, "", "")
+        return subprocess.CompletedProcess(command, 0, "0" * 40, "")
 
     ratchet._run = run
     ratchet.stop_cleanly()
@@ -68,10 +64,9 @@ STOPPED_WHILE_MEASURING = textwrap.dedent(
 def test_a_ratchet_stopped_from_outside_removes_what_it_made(tmp_path):
     spare = tmp_path / "tmp"
     spare.mkdir()
-    removed = tmp_path / "worktree-removed"
     env = {**os.environ, "TMPDIR": str(spare)}
     done = subprocess.run(
-        [sys.executable, "-c", STOPPED_WHILE_MEASURING, str(ROOT / "scripts/ratchet.py"), str(removed)],
+        [sys.executable, "-c", STOPPED_WHILE_MEASURING, str(ROOT / "scripts/ratchet.py")],
         env=env,
         capture_output=True,
         text=True,
@@ -79,7 +74,6 @@ def test_a_ratchet_stopped_from_outside_removes_what_it_made(tmp_path):
     )
     assert done.returncode != 0, "it was stopped, so it must not report success"
     assert _left(spare) == [], f"left in the temporary folder: {_left(spare)}"
-    assert removed.exists(), "the git worktree entry for the copy must be removed too"
 
 
 STOPS_ITSELF = textwrap.dedent(
