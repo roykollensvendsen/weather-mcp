@@ -207,6 +207,10 @@ def _running(pid):
 
 
 @pytest.mark.skipif(
+    not pathlib.Path("/proc").is_dir(),
+    reason="reads each process's state from /proc; without it, nothing would look left running",
+)
+@pytest.mark.skipif(
     shutil.which("uv") is None and not os.environ.get("CI"),
     reason="needs uv, which the ratchet starts its steps through (in CI, its absence fails instead)",
 )
