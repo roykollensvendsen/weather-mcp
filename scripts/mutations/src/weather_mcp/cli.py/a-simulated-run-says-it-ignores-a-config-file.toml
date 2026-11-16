@@ -1,0 +1,5 @@
+[[rule]]
+name = "a simulated run says it ignores a config file"
+file = "src/weather_mcp/cli.py"
+find = 'sys\.stderr\.write\(CONFIG_IGNORED\)'
+replace = 'pass'

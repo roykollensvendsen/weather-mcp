@@ -58,9 +58,21 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 0
     if args.simulate:
-        asyncio.run(_serve_simulated())
-        return 0
+        return _serve_made_up(args.config)
     return _serve_real(args.config)
+
+
+#: What a simulated run asked for a config says: it reads none.
+CONFIG_IGNORED = "weather-mcp: --config is ignored with --simulate; made-up weather needs none.\n"
+
+
+def _serve_made_up(given: str | None) -> int:
+    """Serve made-up weather, saying so if a config was asked for too."""
+    if given:
+        # RULE: a simulated run says it ignores a config file
+        sys.stderr.write(CONFIG_IGNORED)
+    asyncio.run(_serve_simulated())
+    return 0
 
 
 def _serve_real(given: str | None) -> int:
