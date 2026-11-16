@@ -291,7 +291,49 @@ def _run(
     cwd: Path = ROOT,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, check=False)  # noqa: S603
+    """Run a step and wait for it. Stopped meanwhile, the step gets one Ctrl-C and is waited for.
+
+    So the mutation run can put its line back and the suite can remove its files;
+    `subprocess.run` would kill the step outright and leave both.
+
+    The step runs in its own session, so a terminal's Ctrl-C reaches it only through this
+    run, and once: a second Ctrl-C would make pytest cut its own cleanup short. That Ctrl-C
+    goes to the step alone, not to its process group: the step is uv, and uv passes a
+    Ctrl-C on to its own child, so one sent to the group would reach that child twice.
+    `send_signal` passes over a step that has already ended.
+
+    The wait after that Ctrl-C has no time limit, on purpose: these runs are never cut
+    short, and a second stop is ignored meanwhile. Should the step hang there, the way
+    out is `kill -9 -- -<the step's pid>`, which ends everything it started; the next
+    mutation run then puts its line back, and the next test run sweeps its folder.
+
+    What the step writes goes to files, not pipes. Killed with -9 alone, this run would
+    break a pipe, and the step would die at its next line of output, before it could put
+    anything back. The files have no name, so they go with the last process holding them.
+    """
+    with tempfile.TemporaryFile("w+") as out, tempfile.TemporaryFile("w+") as err:
+        with subprocess.Popen(  # noqa: S603
+            command,
+            cwd=cwd,
+            env=env,
+            # RULE: a step outlives a ratchet killed with kill 9
+            stdout=out,
+            stderr=err,
+            text=True,
+            # RULE: a quality step hears terminal stops only through the ratchet
+            start_new_session=True,
+        ) as step:
+            try:
+                step.wait()
+            except BaseException:
+                # RULE: a stopped quality run stops its step and waits for it
+                # RULE: a stopped ratchet tells the python under uv once
+                step.send_signal(signal.SIGINT)
+                step.wait()
+                raise
+        out.seek(0)
+        err.seek(0)
+        return subprocess.CompletedProcess(command, step.returncode, out.read(), err.read())
 
 
 def measure(*, skip_mutation: bool = False, recorded: dict[str, Any] | None = None) -> dict[str, Any]:
