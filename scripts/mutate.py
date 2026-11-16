@@ -48,6 +48,8 @@ ROWS = ROOT / "scripts/mutations"
 #: not run when the process is killed, so without this a hard stop leaves a
 #: source file switched off and the next person wondering why the suite is red.
 RECOVERY = ROOT / "scripts/.mutate-recovery.json"
+#: The package the suite imports, which must come from this checkout's src/.
+PACKAGE = "weather_mcp"
 
 
 def row_path(rule: dict[str, Any]) -> pathlib.PurePosixPath:
@@ -260,25 +262,26 @@ def check_the_package() -> None:
     Two worktrees sharing one venv import whichever one installed the package last, so
     every rule would be measured against the other one's code. The check runs in a fresh
     interpreter, the one the suite will run in, so nothing this script imported can fool it.
+    The package is named, not found under src/: a checkout with none there would otherwise
+    pass on nothing (grocery #17), and the ratchet checks the same name.
     """
     source = (ROOT / "src").resolve()
-    for package in sorted(p.parent.name for p in source.glob("*/__init__.py")):
-        found = subprocess.run(  # noqa: S603
-            [sys.executable, "-c", f"import {package}; print({package}.__file__)"],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
+    found = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", f"import {PACKAGE}; print({PACKAGE}.__file__)"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    where = pathlib.Path(found.stdout.strip()).resolve().parent if found.returncode == 0 else None
+    if where is None or not where.is_relative_to(source):
+        place = where or f"nowhere ({found.stderr.strip()[-200:]})"
+        refusal = (
+            f"The suite would import {PACKAGE} from {place}, not from this checkout's {source}."
+            f" Run `uv sync` in {ROOT}, and do not point UV_PROJECT_ENVIRONMENT at a shared venv."
         )
-        where = pathlib.Path(found.stdout.strip()).resolve().parent if found.returncode == 0 else None
-        if where is None or not where.is_relative_to(source):
-            place = where or f"nowhere ({found.stderr.strip()[-200:]})"
-            refusal = (
-                f"The suite would import {package} from {place}, not from this checkout's {source}."
-                f" Run `uv sync` in {ROOT}, and do not point UV_PROJECT_ENVIRONMENT at a shared venv."
-            )
-            # RULE: a mutation run refuses a package from another checkout
-            raise SystemExit(refusal)
+        # RULE: a mutation run refuses a package from another checkout
+        raise SystemExit(refusal)
 
 
 def main() -> int:

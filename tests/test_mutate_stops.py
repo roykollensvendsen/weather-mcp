@@ -25,6 +25,7 @@ def mutate():
     spec = importlib.util.spec_from_file_location("mutate_stops_under_test", ROOT / "scripts/mutate.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    module.check_the_package = lambda: None  # a scratch checkout has no package of its own
     return module
 
 
@@ -89,6 +90,7 @@ STOPPED_MID_MUTATION = textwrap.dedent(
     root = pathlib.Path(sys.argv[2])
     mutate.ROOT, mutate.ROWS = root, root / "scripts/mutations"
     mutate.RECOVERY = root / "scripts/.mutate-recovery.json"
+    mutate.check_the_package = lambda: None
     put_back = mutate.restore
 
 
