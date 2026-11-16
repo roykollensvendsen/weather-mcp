@@ -254,6 +254,33 @@ def hold_the_checkout() -> int:
     return held
 
 
+def check_the_package() -> None:
+    """Stop unless the suite will import this checkout's own package.
+
+    Two worktrees sharing one venv import whichever one installed the package last, so
+    every rule would be measured against the other one's code. The check runs in a fresh
+    interpreter, the one the suite will run in, so nothing this script imported can fool it.
+    """
+    source = (ROOT / "src").resolve()
+    for package in sorted(p.parent.name for p in source.glob("*/__init__.py")):
+        found = subprocess.run(  # noqa: S603
+            [sys.executable, "-c", f"import {package}; print({package}.__file__)"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        where = pathlib.Path(found.stdout.strip()).resolve().parent if found.returncode == 0 else None
+        if where is None or not where.is_relative_to(source):
+            place = where or f"nowhere ({found.stderr.strip()[-200:]})"
+            refusal = (
+                f"The suite would import {package} from {place}, not from this checkout's {source}."
+                f" Run `uv sync` in {ROOT}, and do not point UV_PROJECT_ENVIRONMENT at a shared venv."
+            )
+            # RULE: a mutation run refuses a package from another checkout
+            raise SystemExit(refusal)
+
+
 def main() -> int:
     """Mutate every rule in turn, restore the tree, and report."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -275,6 +302,7 @@ def _run(args: argparse.Namespace) -> int:
     if args.repair_only:
         # RULE: a repair-only run only repairs
         return 0
+    check_the_package()
     # RULE: an empty rule table is not a crash
     # A scaffolded repository starts with no rows.
     rules = all_rows()

@@ -336,8 +336,28 @@ def _run(
         return subprocess.CompletedProcess(command, step.returncode, out.read(), err.read())
 
 
+def check_the_package() -> None:
+    """Stop unless the measuring steps will import this tree's own package.
+
+    Two worktrees sharing one venv import whichever one installed the package last, and the
+    levels would be the other one's. The check runs as the steps run, through `uv run` in
+    this tree, so it is made for the base's copy as much as for this checkout.
+    """
+    found = _run("uv", "run", "python", "-c", f"import {PACKAGE.name}; print({PACKAGE.name}.__file__)")
+    where = Path(found.stdout.strip()).resolve().parent if found.returncode == 0 else None
+    if where is None or not where.is_relative_to(SOURCE.resolve()):
+        place = where or f"nowhere ({found.stderr.strip()[-200:]})"
+        refusal = (
+            f"The steps would import {PACKAGE.name} from {place}, not from this tree's {SOURCE}."
+            f" Run `uv sync` in {ROOT}, and do not point UV_PROJECT_ENVIRONMENT at a shared venv."
+        )
+        # RULE: a quality run refuses a package from another checkout
+        raise SystemExit(refusal)
+
+
 def measure(*, skip_mutation: bool = False, recorded: dict[str, Any] | None = None) -> dict[str, Any]:
     """Every measure, from the tree as it is."""
+    check_the_package()
     with tempfile.TemporaryDirectory() as tmp:
         report = Path(tmp) / "coverage.json"
         started = time.monotonic()

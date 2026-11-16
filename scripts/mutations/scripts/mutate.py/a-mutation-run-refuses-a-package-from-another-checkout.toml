@@ -1,0 +1,5 @@
+[[rule]]
+name = "a mutation run refuses a package from another checkout"
+file = "scripts/mutate.py"
+find = 'raise SystemExit\(refusal\)'
+replace = 'pass'
