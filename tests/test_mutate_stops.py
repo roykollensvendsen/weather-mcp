@@ -63,10 +63,11 @@ def test_one_mutation_run_per_checkout(tmp_path, monkeypatch, mutate):
     first = os.open(root, os.O_RDONLY)
     try:
         fcntl.flock(first, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        with pytest.raises(SystemExit, match="already running"):
+        with pytest.raises(SystemExit, match="already running") as refused:
             mutate.main()
     finally:
         os.close(first)
+    assert "pgrep -af mutate.py" in str(refused.value)  # how to find the run holding it
     assert source.read_text() == "x = 2\n"  # the first run's mutation, untouched
     assert (root / "scripts/.mutate-recovery.json").exists()
     assert suites == []
