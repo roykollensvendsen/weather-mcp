@@ -146,3 +146,19 @@ def test_every_row_file_in_the_repository_is_where_its_rule_says():
     misfiled = _mutate().misfiled()
     assert not misfiled, "row files out of place: " + "; ".join(misfiled)
     assert not (ROOT / "scripts/mutations.toml").exists(), "the shared table is gone; give each row a file"
+
+
+def test_every_row_finds_its_one_line_by_its_pattern_alone():
+    """A row whose pattern matches two lines switches off the first, which is the rule's only by luck.
+
+    One that means a later match says so with `occurrence`.
+    """
+    loose = []
+    for rule in _mutate().all_rows(ROOT / "scripts/mutations"):
+        if "occurrence" in rule:
+            continue
+        lines = (ROOT / rule["file"]).read_text().splitlines()
+        found = sum(1 for line in lines if re.search(rule["find"], line))
+        if found != 1:
+            loose.append(f"{rule['name']}: {found} lines match {rule['find']!r}")
+    assert loose == []
