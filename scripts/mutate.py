@@ -7,6 +7,11 @@ Where a rule already exists, this is the substitute. Every rule has one row,
 in a file of its own under scripts/mutations/. Run it from the repository root:
 
     uv run python scripts/mutate.py [--write evidence/tests/rule-mutations.md]
+    uv run python scripts/mutate.py --repair-only
+
+One run at a time holds the checkout. A stop (Ctrl-C, a cancelled CI job, a closed
+terminal) puts the mutated source back before the run ends. `--repair-only` puts back a
+source a killed run left mutated, and does nothing else.
 
 A kill is not enough on its own. A mutation breaks whatever it breaks, and it
 can break a test for an incidental reason — a documented example whose output
@@ -20,11 +25,13 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import fcntl
 import json
 import os
 import pathlib
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -206,13 +213,68 @@ def run_suite() -> tuple[int, list[str]]:
     return int(m.group(1)) if m else 0, [f.split("::")[-1].split("[")[0] for f in failed]
 
 
+#: The stops a run cleans up after: Ctrl-C, a cancelled CI job, and a closed terminal.
+STOPS = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+
+
+def stop_cleanly() -> None:
+    """Make every stop from outside run the `finally` that puts the mutated source back.
+
+    SIGTERM and SIGHUP end a process at once by default, with a file still switched off.
+    Once stopping, every further stop is ignored, so putting it back runs to its end.
+    """
+
+    def stop(signum: int, _frame: object) -> None:
+        for each in STOPS:
+            # RULE: a second stop cannot cut a mutation runs cleanup short
+            signal.signal(each, signal.SIG_IGN)
+        if signum == signal.SIGINT:
+            raise KeyboardInterrupt
+        # RULE: a stopped mutation run puts the source back
+        raise SystemExit(128 + signum)
+
+    for each in STOPS:
+        signal.signal(each, stop)
+
+
+def hold_the_checkout() -> int:
+    """Take this checkout for the run, or stop: a second run would repair the first's mutation.
+
+    The lock is on the checkout's folder itself, so there is no lock file to leave behind,
+    and it is let go when the process ends, however it ends.
+    """
+    held = os.open(ROOT, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        # RULE: one mutation run per checkout
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(held)
+        msg = f"A mutation run is already running in {ROOT}; let it end before starting another."
+        raise SystemExit(msg) from None
+    return held
+
+
 def main() -> int:
     """Mutate every rule in turn, restore the tree, and report."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--write", type=pathlib.Path, help="write the evidence table here")
+    parser.add_argument("--repair-only", action="store_true", help="only put back what a killed run left")
     args = parser.parse_args()
 
+    stop_cleanly()
+    held = hold_the_checkout()
+    try:
+        return _run(args)
+    finally:
+        os.close(held)
+
+
+def _run(args: argparse.Namespace) -> int:
+    """The run itself, once this checkout is held."""
     repair()
+    if args.repair_only:
+        # RULE: a repair-only run only repairs
+        return 0
     # RULE: an empty rule table is not a crash
     # A scaffolded repository starts with no rows.
     rules = all_rows()
