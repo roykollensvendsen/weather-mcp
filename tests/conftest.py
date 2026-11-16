@@ -14,6 +14,9 @@ shares, and set to keep nothing it removes folders other runs are still using. P
 A stop from outside, as when CI cancels a job, ends the run like Ctrl-C does, so the
 folder is still removed; a second stop is then ignored, so it cannot cut that short.
 
+Each test also leaves the stop handlers as it found them. Proven by
+`tests/test_stop_handlers_put_back.py`.
+
 The run also fails if a test changed the rule check's real recovery file.
 `scripts/mutate.py` keeps the file it is mutating there while the suite runs, so a test
 that ran the runner without its own `RECOVERY` would lose the original. Proven by
@@ -31,7 +34,7 @@ import signal
 import stat
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 import pytest
 
@@ -50,7 +53,7 @@ STARTING = re.compile(re.escape(PREFIX) + r"starting-\w+")
 #: and nothing measured says how long a run killed while starting may sit before then.
 STARTING_SECONDS = 3600
 LOCK = ".lock"
-OPEN_LOCK = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW
+OPEN_LOCK = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
 #: A sweep only opens a lock that is there: one it made would sit in a new run's folder
 #: before that run moves in, and the run's rename onto it would then fail.
 OPEN_THEIR_LOCK = os.O_RDWR | os.O_NOFOLLOW
@@ -209,3 +212,12 @@ def pytest_sessionfinish(session: pytest.Session) -> None:
             "A test that runs scripts/mutate.py must point RECOVERY at its own temporary file."
         )
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
+@pytest.fixture(autouse=True)
+def _stop_handlers_put_back() -> Iterator[None]:
+    """A test that runs a script's `main()` in-process would leave its handlers for every test after."""
+    before = {each: signal.getsignal(each) for each in STOPS}
+    yield
+    for each, handler in before.items():
+        signal.signal(each, handler)
