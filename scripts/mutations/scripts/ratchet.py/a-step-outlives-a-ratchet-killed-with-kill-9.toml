@@ -1,0 +1,5 @@
+[[rule]]
+name = "a step outlives a ratchet killed with kill 9"
+file = "scripts/ratchet.py"
+find = '^            stdout=out,$'
+replace = 'stdout=subprocess.PIPE,'
