@@ -251,7 +251,10 @@ def hold_the_checkout() -> int:
         fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         os.close(held)
-        msg = f"A mutation run is already running in {ROOT}; let it end before starting another."
+        msg = (
+            f"A mutation run is already running in {ROOT}; let it end before starting another."
+            " `pgrep -af mutate.py` shows it."
+        )
         raise SystemExit(msg) from None
     return held
 
