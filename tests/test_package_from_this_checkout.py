@@ -44,6 +44,7 @@ def test_a_mutation_run_refuses_a_package_from_another_checkout(tmp_path, monkey
     """A venv shared with another worktree measures that worktree's code, and every rule looks the same."""
     here, other = _two_checkouts(tmp_path)
     monkeypatch.setattr(mutate, "ROOT", here)
+    monkeypatch.setattr(mutate, "PACKAGE", "pkg")
     monkeypatch.setenv("PYTHONPATH", str(other / "src"))
     with pytest.raises(SystemExit, match="uv sync") as refused:
         mutate.check_the_package()
@@ -54,8 +55,18 @@ def test_a_mutation_run_refuses_a_package_from_another_checkout(tmp_path, monkey
 def test_a_package_from_this_checkout_is_measured(tmp_path, monkeypatch, mutate):
     here, _ = _two_checkouts(tmp_path)
     monkeypatch.setattr(mutate, "ROOT", here)
+    monkeypatch.setattr(mutate, "PACKAGE", "pkg")
     monkeypatch.setenv("PYTHONPATH", str(here / "src"))
     mutate.check_the_package()
+
+
+def test_a_checkout_without_the_package_is_refused(tmp_path, monkeypatch, mutate):
+    """With nothing under src/ to look for, a check would pass on nothing (grocery #17)."""
+    (tmp_path / "src").mkdir()
+    monkeypatch.setattr(mutate, "ROOT", tmp_path)
+    with pytest.raises(SystemExit, match="uv sync") as refused:
+        mutate.check_the_package()
+    assert str(tmp_path / "src") in str(refused.value)
 
 
 def test_a_mutation_run_checks_the_package_before_it_measures(tmp_path, monkeypatch, mutate):
