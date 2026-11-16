@@ -11,6 +11,7 @@ stand-in step, in its own process group as a terminal gives a command.
 
 import os
 import pathlib
+import shutil
 import signal
 import subprocess
 import sys
@@ -98,12 +99,19 @@ def test_a_quality_step_hears_terminal_stops_only_through_the_ratchet(tmp_path):
     assert (marks / "put-back").read_text() == "x"  # once, not twice
 
 
+@pytest.mark.skipif(
+    shutil.which("uv") is None and not os.environ.get("CI"),
+    reason="needs uv, which the ratchet starts its steps through (in CI, its absence fails instead)",
+)
 @pytest.mark.parametrize("stop", [signal.SIGTERM, signal.SIGINT], ids=["kill", "ctrl-c"])
 def test_a_stopped_ratchet_tells_the_python_under_uv_once(tmp_path, stop):
     """The ratchet starts its steps through uv, and uv passes a Ctrl-C on to its own child.
 
     Sent to uv's whole process group instead, the Ctrl-C would reach that child twice.
     """
+    # In CI the proof must not drop out unseen: there a missing uv is a failure, not a skip.
+    if shutil.which("uv") is None:
+        pytest.fail("CI has no uv, so the proof that a stopped ratchet tells uv's child once cannot run")
 
     def send(stand_in):
         if stop == signal.SIGINT:
