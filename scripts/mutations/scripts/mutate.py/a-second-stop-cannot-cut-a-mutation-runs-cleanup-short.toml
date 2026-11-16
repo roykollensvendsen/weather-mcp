@@ -1,0 +1,5 @@
+[[rule]]
+name = "a second stop cannot cut a mutation runs cleanup short"
+file = "scripts/mutate.py"
+find = 'signal\.signal\(each, signal\.SIG_IGN\)'
+replace = 'pass'

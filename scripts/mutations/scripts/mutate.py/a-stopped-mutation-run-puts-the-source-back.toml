@@ -1,0 +1,5 @@
+[[rule]]
+name = "a stopped mutation run puts the source back"
+file = "scripts/mutate.py"
+find = 'raise SystemExit\(128 \+ signum\)'
+replace = 'os._exit(128 + signum)'
