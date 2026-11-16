@@ -85,3 +85,17 @@ def test_serve_simulate_needs_no_config(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "_serve_simulated", fake_serve)
     assert cli.main(["serve", "--simulate", "--config", str(tmp_path / "missing.toml")]) == 0
     assert started == [True]
+
+
+def test_a_simulated_run_says_it_ignores_a_config_file(monkeypatch, tmp_path, capsys):
+    """Asked for a config and for made-up weather, the run says which one it took."""
+
+    async def fake_serve():
+        return None
+
+    monkeypatch.setattr(cli, "_serve_simulated", fake_serve)
+    assert cli.main(["serve", "--simulate", "--config", str(tmp_path / "config.toml")]) == 0
+    said = capsys.readouterr().err
+    assert "--config is ignored" in said
+    assert cli.main(["serve", "--simulate"]) == 0
+    assert capsys.readouterr().err == ""
