@@ -4,15 +4,19 @@ Home here is made up, at 61.00 N 9.00 E.
 """
 
 import asyncio
+import contextlib
+import importlib
 import logging
+import pkgutil
 
+import httpcore
 import httpx
 from fakes import FakeApi, forecast
 
 from weather_mcp.cache import CachedClient
 from weather_mcp.config import Config, Place
 from weather_mcp.places import PlaceFinder
-from weather_mcp.server import build_server
+from weather_mcp.server import NO_QUERY_STRINGS, build_server
 from weather_mcp.weather import Weather
 
 HOME = Place(name="Testheim", lat=61.0, lon=9.0)
@@ -288,3 +292,21 @@ def test_building_many_servers_keeps_one_filter():
     Voice().close()
     Voice().close()
     assert len(logging.getLogger("httpcore.http11").filters) == 1
+
+
+def test_every_logger_httpx_and_httpcore_have_carries_the_filter():
+    """A logger httpx or httpcore adds in a later release would write addresses unseen."""
+    for module in (
+        *pkgutil.walk_packages(httpx.__path__, "httpx."),
+        *pkgutil.walk_packages(httpcore.__path__, "httpcore."),
+    ):
+        with contextlib.suppress(ImportError):
+            importlib.import_module(module.name)
+    Voice().close()
+    theirs = [
+        name
+        for name, each in logging.root.manager.loggerDict.items()
+        if name.split(".")[0] in ("httpx", "httpcore") and isinstance(each, logging.Logger)
+    ]
+    assert theirs
+    assert [name for name in theirs if NO_QUERY_STRINGS not in logging.getLogger(name).filters] == []
