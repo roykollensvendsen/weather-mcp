@@ -55,6 +55,16 @@ def test_two_mutations_never_share_a_bytecode_cache(monkeypatch, tmp_path):
     assert seen["env"].get("PYTHONDONTWRITEBYTECODE") == "1"
 
 
+def test_a_real_mutation_run_is_never_capped(monkeypatch, tmp_path):
+    """Roy's rule: a run takes as long as it takes. Only a test's scratch run passes a bound."""
+    runner = _runner(monkeypatch, tmp_path)
+    seen = _suite_says(monkeypatch, runner, "1 passed\n")
+    runner.run_suite()
+    assert seen["timeout"] is None
+    runner.run_suite(timeout=300)
+    assert seen["timeout"] == 300
+
+
 def test_a_coloured_failure_line_is_still_attributed(monkeypatch, tmp_path):
     runner = _runner(monkeypatch, tmp_path)
     red, plain = "\x1b[31m", "\x1b[0m"
