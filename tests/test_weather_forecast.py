@@ -135,7 +135,10 @@ def test_the_forecast_tool_asks_for_the_phones_position_and_the_day():
         tool = voice.tools()["weather_forecast"]
         assert {"day", "place", "lat", "lon", "accuracy_m"} <= set(tool.input_schema["properties"])
         assert "phone's position" in tool.description
-        assert "tomorrow" in tool.description
+        day = tool.input_schema["properties"]["day"]
+        assert day["type"] == "string"
+        assert "tomorrow" in day["description"].lower()
+        assert "fredag" in day["description"]  # Norwegian words are taken too
     finally:
         voice.close()
 

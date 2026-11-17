@@ -1,0 +1,5 @@
+[[rule]]
+name = "an unknown day is asked about not guessed"
+file = "src/weather_mcp/weather.py"
+find = '^            return \{"success": False, "say": WHICH\}$'
+replace = 'pass'
