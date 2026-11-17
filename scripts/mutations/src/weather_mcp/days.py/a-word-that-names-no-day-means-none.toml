@@ -1,0 +1,6 @@
+[[rule]]
+name = "a word that names no day means none"
+file = "src/weather_mcp/days.py"
+find = '^        return None$'
+replace = 'pass'
+occurrence = 1

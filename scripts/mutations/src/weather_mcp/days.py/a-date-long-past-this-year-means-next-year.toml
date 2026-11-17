@@ -1,0 +1,5 @@
+[[rule]]
+name = "a date long past this year means next year"
+file = "src/weather_mcp/days.py"
+find = '^            when = when\.replace\(year=today\.year \+ 1\)$'
+replace = 'pass'
