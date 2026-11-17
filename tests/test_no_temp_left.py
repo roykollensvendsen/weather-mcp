@@ -18,6 +18,7 @@ import time
 import types
 
 import pytest
+from waits import line_within
 
 ROOT = pathlib.Path(__file__).parent.parent
 
@@ -36,6 +37,7 @@ def _pytest(temp, *tests):
         capture_output=True,
         text=True,
         check=False,
+        timeout=600,
     )
 
 
@@ -75,7 +77,7 @@ def test_a_live_runs_folder_is_kept(tmp_path):
         stdout=subprocess.PIPE,
         text=True,
     ) as holder:
-        assert holder.stdout.readline().strip() == "holding"
+        assert line_within(holder.stdout, 60).strip() == "holding"
         done = _pytest(temp, "tests/test_disk_cache.py")
         holder.stdin.close()
     assert done.returncode == 0, done.stdout
@@ -107,6 +109,7 @@ def test_a_tests_temporary_files_go_in_the_runs_own_folder(tmp_path):
         capture_output=True,
         text=True,
         check=True,
+        timeout=60,
     )
     assert pathlib.Path(child.stdout.strip()) == run
 

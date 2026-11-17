@@ -37,6 +37,7 @@ def test_a_test_run_removes_its_own_temporary_folder(tmp_path):
         capture_output=True,
         text=True,
         check=False,
+        timeout=600,
     )
     assert done.returncode == 0, done.stdout[-2000:]
     assert _left(spare) == [], f"left in the temporary folder: {_left(spare)}"
@@ -74,6 +75,7 @@ def test_a_ratchet_stopped_from_outside_removes_what_it_made(tmp_path):
         capture_output=True,
         text=True,
         check=False,
+        timeout=60,
     )
     assert done.returncode != 0, "it was stopped, so it must not report success"
     assert _left(spare) == [], f"left in the temporary folder: {_left(spare)}"
@@ -106,6 +108,7 @@ def test_a_test_run_stopped_from_outside_removes_its_folder(tmp_path):
         capture_output=True,
         text=True,
         check=False,
+        timeout=600,
     )
     assert done.returncode != 0, "a stopped run must not report success"
     assert _left(spare) == [], f"left in the temporary folder: {_left(spare)}"

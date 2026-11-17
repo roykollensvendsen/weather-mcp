@@ -16,6 +16,7 @@ import sys
 import textwrap
 
 import pytest
+from waits import line_within
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -154,14 +155,18 @@ def _stop_mid_mutation(tmp_path, *stops):
         stderr=subprocess.PIPE,
         text=True,
     ) as run:
-        assert run.stdout.readline() == "testing  a rule\n"
-        assert run.stdout.readline() == "measuring\n"
-        assert source.read_text() == "x = 2\n"
-        run.send_signal(stops[0])
-        began = run.stdout.readline()
-        for each in stops[1:]:
-            run.send_signal(each)
-        _, err = run.communicate("\n")
+        try:
+            assert line_within(run.stdout, 60) == "testing  a rule\n"
+            assert line_within(run.stdout, 60) == "measuring\n"
+            assert source.read_text() == "x = 2\n"
+            run.send_signal(stops[0])
+            began = line_within(run.stdout, 60)
+            for each in stops[1:]:
+                run.send_signal(each)
+            _, err = run.communicate("\n", timeout=60)
+        finally:
+            if run.poll() is None:  # a run that never answered: ended here, so leaving waits on nothing
+                run.kill()
     left = (root / "scripts/.mutate-recovery.json").exists()
     return began, source.read_text(), left, run.returncode, err
 

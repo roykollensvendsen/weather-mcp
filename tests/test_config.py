@@ -73,7 +73,12 @@ def test_the_config_is_read_as_utf8_whatever_the_locale(tmp_path):
         "print(load_config(pathlib.Path(sys.argv[1])).home.name.encode())"
     )
     run = subprocess.run(
-        [sys.executable, "-c", code, str(path)], env=env, capture_output=True, text=True, check=False
+        [sys.executable, "-c", code, str(path)],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
     )
     assert run.returncode == 0, run.stderr
     assert run.stdout.strip() == repr("Tromsø".encode())

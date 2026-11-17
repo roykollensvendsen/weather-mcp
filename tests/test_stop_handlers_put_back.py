@@ -42,6 +42,7 @@ def _scratch_run(folder: pathlib.Path, conftest: str) -> subprocess.CompletedPro
         capture_output=True,
         text=True,
         check=False,
+        timeout=600,
     )
 
 
