@@ -1,0 +1,5 @@
+[[rule]]
+name = "a weekday said on that day is today"
+file = "src/weather_mcp/days.py"
+find = '^    ahead = \(WEEKDAYS\[words\] - today\.weekday\(\)\) % WEEK$'
+replace = 'ahead = (WEEKDAYS[words] - today.weekday()) % WEEK or WEEK'

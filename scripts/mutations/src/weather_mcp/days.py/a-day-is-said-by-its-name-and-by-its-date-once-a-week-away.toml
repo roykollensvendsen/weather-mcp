@@ -1,0 +1,5 @@
+[[rule]]
+name = "a day is said by its name and by its date once a week away"
+file = "src/weather_mcp/days.py"
+find = '^    return name if ahead < WEEK else '
+replace = 'return name'

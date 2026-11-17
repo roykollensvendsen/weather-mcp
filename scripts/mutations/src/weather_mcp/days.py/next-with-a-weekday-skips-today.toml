@@ -1,0 +1,5 @@
+[[rule]]
+name = "next with a weekday skips today"
+file = "src/weather_mcp/days.py"
+find = '^        ahead = WEEK$'
+replace = 'pass'
