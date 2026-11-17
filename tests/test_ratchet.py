@@ -12,6 +12,7 @@ import pathlib
 import textwrap
 
 import pytest
+from bounded import WITHIN
 
 ROOT = pathlib.Path(__file__).parent.parent
 
@@ -272,7 +273,7 @@ def test_the_base_is_measured_where_no_other_branch_can_be_seen(tmp_path, monkey
     repo.mkdir()
 
     def git(*args):
-        subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, timeout=60)
+        subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, timeout=WITHIN)
 
     for args in (
         ["init", "-q", "-b", "main"],
@@ -296,7 +297,7 @@ def test_the_base_is_measured_where_no_other_branch_can_be_seen(tmp_path, monkey
         check=True,
         capture_output=True,
         text=True,
-        timeout=60,
+        timeout=WITHIN,
     ).stdout
     assert (copy / "notes.txt").read_text() == "main\n"
     assert "under review" not in seen

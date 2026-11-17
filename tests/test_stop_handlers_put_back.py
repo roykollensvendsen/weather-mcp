@@ -11,6 +11,8 @@ import pathlib
 import subprocess
 import sys
 
+from bounded import run_bounded
+
 ROOT = pathlib.Path(__file__).parent.parent
 #: The line in the conftest that puts each handler back.
 PUT_BACK = "        signal.signal(each, handler)\n"
@@ -36,13 +38,12 @@ def _scratch_run(folder: pathlib.Path, conftest: str) -> subprocess.CompletedPro
     (folder / "tests").mkdir()
     (folder / "tests/conftest.py").write_text(conftest)
     (folder / "tests/test_scratch.py").write_text(TWO_TESTS)
-    return subprocess.run(
+    return run_bounded(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "--rootdir", str(folder), "tests"],
         cwd=folder,
         capture_output=True,
         text=True,
         check=False,
-        timeout=600,
     )
 
 

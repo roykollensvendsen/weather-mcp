@@ -19,6 +19,7 @@ import sys
 import time
 
 import pytest
+from bounded import WITHIN
 
 ROOT = pathlib.Path(__file__).parent.parent
 
@@ -183,7 +184,7 @@ def test_a_step_outlives_a_ratchet_killed_with_kill_9(tmp_path):
             time.sleep(0.05)
         pid = int(pid)
         stand_in.kill()
-        stand_in.wait(timeout=60)
+        stand_in.wait(timeout=WITHIN)
         (marks / "ratchet-gone").touch()
         for _ in range(600):
             if (marks / "finished").exists() or not pathlib.Path(f"/proc/{pid}").exists():

@@ -10,6 +10,7 @@ import subprocess
 import sys
 
 import pytest
+from bounded import WITHIN
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "scripts"))
 
@@ -113,7 +114,7 @@ def test_every_commit_means_every_commit_including_the_first():
         capture_output=True,
         text=True,
         check=True,
-        timeout=60,
+        timeout=WITHIN,
     ).stdout.strip()
     every = {sha for sha, _ in imperative.subjects("HEAD")}
     as_a_range = {sha for sha, _ in imperative.subjects(f"{root}..HEAD")}

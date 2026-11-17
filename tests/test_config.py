@@ -7,6 +7,7 @@ the owner's own config file, never in this repository.
 import pathlib
 
 import pytest
+from bounded import run_bounded
 
 from weather_mcp.config import ConfigError, config_path, load_config
 
@@ -63,7 +64,6 @@ def test_the_config_lives_under_the_users_config_folder(monkeypatch, tmp_path):
 def test_the_config_is_read_as_utf8_whatever_the_locale(tmp_path):
     """The bridge starts the server with no LANG; a name like Tromsø must still read."""
     import os  # noqa: PLC0415
-    import subprocess  # noqa: PLC0415
     import sys  # noqa: PLC0415
 
     path = write(tmp_path, 'contact = "x"\n[home]\nname = "Tromsø"\nlat = 61.0\nlon = 9.0\n')
@@ -72,13 +72,12 @@ def test_the_config_is_read_as_utf8_whatever_the_locale(tmp_path):
         "import pathlib, sys; from weather_mcp.config import load_config; "
         "print(load_config(pathlib.Path(sys.argv[1])).home.name.encode())"
     )
-    run = subprocess.run(
+    run = run_bounded(
         [sys.executable, "-c", code, str(path)],
         env=env,
         capture_output=True,
         text=True,
         check=False,
-        timeout=60,
     )
     assert run.returncode == 0, run.stderr
     assert run.stdout.strip() == repr("Tromsø".encode())

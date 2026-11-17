@@ -6,6 +6,7 @@ import subprocess
 import sys
 
 import pytest
+from bounded import WITHIN
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "scripts"))
 
@@ -81,9 +82,9 @@ def test_a_commit_is_scanned_as_staged(tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     repo.mkdir()
     for args in (["init", "-q"], ["config", "user.email", "t@example.org"], ["config", "user.name", "t"]):
-        subprocess.run(["git", *args], cwd=repo, check=True, timeout=60)
+        subprocess.run(["git", *args], cwd=repo, check=True, timeout=WITHIN)
     (repo / "notes.txt").write_text("lat = " + "61.98" + "765\n")
-    subprocess.run(["git", "add", "notes.txt"], cwd=repo, check=True, timeout=60)
+    subprocess.run(["git", "add", "notes.txt"], cwd=repo, check=True, timeout=WITHIN)
     (repo / "notes.txt").write_text("nothing here\n")  # cleaned on disk, not in what is staged
     monkeypatch.setattr(private_data_scan, "ROOT", repo)
     assert private_data_scan.main(["--words", str(NONE), "--config", str(NONE)]) == 1
@@ -99,17 +100,17 @@ def _repo_with_a_branch(tmp_path, *, on_main):
         ["config", "user.name", "t"],
     ]
     for args in git:
-        subprocess.run(["git", *args], cwd=repo, check=True, timeout=60)
+        subprocess.run(["git", *args], cwd=repo, check=True, timeout=WITHIN)
 
     def commit(text):
         (repo / "notes.txt").write_text(text)
-        subprocess.run(["git", "add", "notes.txt"], cwd=repo, check=True, timeout=60)
-        subprocess.run(["git", "commit", "-q", "-m", "notes"], cwd=repo, check=True, timeout=60)
+        subprocess.run(["git", "add", "notes.txt"], cwd=repo, check=True, timeout=WITHIN)
+        subprocess.run(["git", "commit", "-q", "-m", "notes"], cwd=repo, check=True, timeout=WITHIN)
 
     commit(on_main)
-    subprocess.run(["git", "switch", "-q", "-c", "side"], cwd=repo, check=True, timeout=60)
+    subprocess.run(["git", "switch", "-q", "-c", "side"], cwd=repo, check=True, timeout=WITHIN)
     commit("lat = " + "61.98" + "765\n")
-    subprocess.run(["git", "switch", "-q", "main"], cwd=repo, check=True, timeout=60)
+    subprocess.run(["git", "switch", "-q", "main"], cwd=repo, check=True, timeout=WITHIN)
     return repo
 
 

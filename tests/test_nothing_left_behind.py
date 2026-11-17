@@ -8,11 +8,11 @@ looks at what is left.
 import os
 import pathlib
 import signal
-import subprocess
 import sys
 import textwrap
 
 import pytest
+from bounded import run_bounded
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -30,14 +30,13 @@ def test_a_test_run_removes_its_own_temporary_folder(tmp_path):
     spare = tmp_path / "tmp"
     spare.mkdir()
     env = {**os.environ, "TMPDIR": str(spare)}
-    done = subprocess.run(
+    done = run_bounded(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests/test_disk_cache.py"],
         cwd=ROOT,
         env=env,
         capture_output=True,
         text=True,
         check=False,
-        timeout=600,
     )
     assert done.returncode == 0, done.stdout[-2000:]
     assert _left(spare) == [], f"left in the temporary folder: {_left(spare)}"
@@ -69,13 +68,12 @@ def test_a_ratchet_stopped_from_outside_removes_what_it_made(tmp_path):
     spare = tmp_path / "tmp"
     spare.mkdir()
     env = {**os.environ, "TMPDIR": str(spare)}
-    done = subprocess.run(
+    done = run_bounded(
         [sys.executable, "-c", STOPPED_WHILE_MEASURING, str(ROOT / "scripts/ratchet.py")],
         env=env,
         capture_output=True,
         text=True,
         check=False,
-        timeout=60,
     )
     assert done.returncode != 0, "it was stopped, so it must not report success"
     assert _left(spare) == [], f"left in the temporary folder: {_left(spare)}"
@@ -101,14 +99,13 @@ def test_a_test_run_stopped_from_outside_removes_its_folder(tmp_path):
     spare.mkdir()
     (project / "tests/conftest.py").write_text((ROOT / "tests/conftest.py").read_text())
     (project / "tests/test_stop.py").write_text(STOPS_ITSELF)
-    done = subprocess.run(
+    done = run_bounded(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "--rootdir", str(project), "tests"],
         cwd=project,
         env={**os.environ, "TMPDIR": str(spare)},
         capture_output=True,
         text=True,
         check=False,
-        timeout=600,
     )
     assert done.returncode != 0, "a stopped run must not report success"
     assert _left(spare) == [], f"left in the temporary folder: {_left(spare)}"
