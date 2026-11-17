@@ -32,6 +32,9 @@ AGENT = "weather-mcp/simulated https://example.org/weather-mcp-simulated"
 PLACES = {"Testheim": HOME}
 #: The sky by Oslo hour of the day: cloudy mornings, light rain after noon, clear evenings.
 SKY = ((6, "fair_night"), (12, "cloudy"), (17, "lightrain"), (23, "clearsky_night"), (24, "fair_night"))
+#: How many entries are an hour apart, and how far the made-up forecast reaches, as MET's does.
+HOURLY = 60
+REACH = dt.timedelta(days=9, hours=12)
 
 
 def _sky(hour: int) -> str:
@@ -39,33 +42,38 @@ def _sky(hour: int) -> str:
 
 
 def _forecast(now: dt.datetime) -> dict[str, Any]:
-    """Sixty made-up hours from the hour that is now, in MET's compact shape."""
+    """Made-up weather in MET's compact shape: sixty hours, then six-hour blocks for nine days more.
+
+    As in MET's own answer, the hours carry next_1_hours, the blocks at 00, 06, 12 and 18 UTC
+    carry next_6_hours only, and the last entry carries neither.
+    """
     start = now.replace(minute=0, second=0, microsecond=0)
-    series = []
-    for n in range(60):
-        time = start + dt.timedelta(hours=n)
-        local_hour = (time.hour + 1) % 24
-        symbol = _sky(local_hour)
-        series.append(
-            {
-                "time": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "data": {
-                    "instant": {
-                        "details": {
-                            "air_temperature": round(
-                                4 + 3 * math.sin((local_hour - 8) / 24 * 2 * math.pi), 1
-                            ),
-                            "wind_speed": 3.0 + local_hour % 4,
-                        }
-                    },
-                    "next_1_hours": {
-                        "summary": {"symbol_code": symbol},
-                        "details": {"precipitation_amount": 0.4 if "rain" in symbol else 0.0},
-                    },
-                },
-            }
-        )
+    times = [start + dt.timedelta(hours=n) for n in range(HOURLY)]
+    while times[-1] < start + REACH:
+        times.append(times[-1] + dt.timedelta(hours=6 if times[-1].hour % 6 == 0 else 1))
+    series = [_entry(time, hourly=n < HOURLY, last=n == len(times) - 1) for n, time in enumerate(times)]
     return {"type": "Feature", "properties": {"meta": {}, "timeseries": series}}
+
+
+def _entry(time: dt.datetime, *, hourly: bool, last: bool) -> dict[str, Any]:
+    """One entry of the made-up forecast, its block an hour or six hours long, or none at the end."""
+    local_hour = (time.hour + 1) % 24
+    symbol = _sky(local_hour)
+    hours = 1 if hourly else 6
+    data: dict[str, Any] = {
+        "instant": {
+            "details": {
+                "air_temperature": round(4 + 3 * math.sin((local_hour - 8) / 24 * 2 * math.pi), 1),
+                "wind_speed": 3.0 + local_hour % 4,
+            }
+        }
+    }
+    if not last:
+        data[f"next_{hours}_hours"] = {
+            "summary": {"symbol_code": symbol},
+            "details": {"precipitation_amount": 0.4 * hours if "rain" in symbol else 0.0},
+        }
+    return {"time": time.strftime("%Y-%m-%dT%H:%M:%SZ"), "data": data}
 
 
 def _place(name: str, place: Place) -> dict[str, Any]:
