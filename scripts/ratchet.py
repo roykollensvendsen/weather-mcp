@@ -60,7 +60,7 @@ TALLY = re.compile(r"(\d+)/(\d+) rules turned off")
 #: The layers, lowest first. The core reads the config, finds places and asks MET, and
 #: knows nothing of MCP; only the top, the server, the command line and the simulated
 #: server built from them, puts it on the wire.
-CORE = {"config", "cache", "places", "weather", "__init__", "_version"}
+CORE = {"config", "cache", "places", "weather", "days", "__init__", "_version"}
 TOP = {"server", "cli", "simulated"}
 #: Which layers each layer may import from this package, and the outside packages it never may.
 ALLOWED = {
