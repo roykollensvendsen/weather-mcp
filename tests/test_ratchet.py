@@ -272,7 +272,7 @@ def test_the_base_is_measured_where_no_other_branch_can_be_seen(tmp_path, monkey
     repo.mkdir()
 
     def git(*args):
-        subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+        subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, timeout=60)
 
     for args in (
         ["init", "-q", "-b", "main"],
@@ -291,7 +291,12 @@ def test_the_base_is_measured_where_no_other_branch_can_be_seen(tmp_path, monkey
     copy = tmp_path / "base"
     ratchet.copy_of("main", copy)
     seen = subprocess.run(
-        ["git", "log", "--all", "--format=%s"], cwd=copy, check=True, capture_output=True, text=True
+        ["git", "log", "--all", "--format=%s"],
+        cwd=copy,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
     ).stdout
     assert (copy / "notes.txt").read_text() == "main\n"
     assert "under review" not in seen
