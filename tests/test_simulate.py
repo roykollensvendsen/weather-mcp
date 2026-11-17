@@ -1,7 +1,9 @@
 """weather-mcp serve --simulate: made-up weather, no network, and every answer says so."""
 
 import asyncio
+import datetime as dt
 import socket
+import zoneinfo
 
 import pytest
 
@@ -29,6 +31,8 @@ def no_network(monkeypatch):
         ("weather_now", {"place": "Nowhere at all"}),
         ("weather_forecast", {}),
         ("weather_forecast", {"day": "today"}),
+        ("weather_forecast", {"day": "fredag"}),
+        ("weather_week", {}),
     ],
 )
 def test_every_simulated_answer_says_simulated_first(tool, arguments):
@@ -99,3 +103,22 @@ def test_a_simulated_run_says_it_ignores_a_config_file(monkeypatch, tmp_path, ca
     assert "--config is ignored" in said
     assert cli.main(["serve", "--simulate"]) == 0
     assert capsys.readouterr().err == ""
+
+
+def test_a_simulated_run_reaches_as_far_as_mets_forecast():
+    """Hours first, then six-hour blocks for about nine days, as MET's own answer goes."""
+    from weather_mcp.simulated import simulated_server  # noqa: PLC0415
+
+    later = (dt.datetime.now(zoneinfo.ZoneInfo("Europe/Oslo")) + dt.timedelta(days=7)).strftime("%d.%m")
+
+    async def go():
+        async with simulated_server() as server:
+            week = await server.call_tool("weather_week", {})
+            day = await server.call_tool("weather_forecast", {"day": later})
+            return week.structured_content, day.structured_content
+
+    week, day = asyncio.run(go())
+    assert week["success"], week
+    assert week["say"].startswith("Simulated: The next 5 days in Testheim: ")
+    assert day["success"], day
+    assert " in Testheim: about " in day["say"]  # a block day
