@@ -1,0 +1,5 @@
+[[rule]]
+name = "rain is counted once for each stretch of time"
+file = "src/weather_mcp/weather.py"
+find = '^        rains\.append\(rain if counted is None or at >= counted else 0\.0\)$'
+replace = 'rains.append(rain)'

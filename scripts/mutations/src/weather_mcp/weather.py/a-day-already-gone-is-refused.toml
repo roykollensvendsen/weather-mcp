@@ -1,0 +1,5 @@
+[[rule]]
+name = "a day already gone is refused"
+file = "src/weather_mcp/weather.py"
+find = '^            return \{"success": False, "say": PASSED\}$'
+replace = 'pass'

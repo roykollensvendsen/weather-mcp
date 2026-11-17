@@ -16,6 +16,7 @@ import httpx
 
 from weather_mcp.cache import RefusedError, SlowedDownError, UpstreamError
 from weather_mcp.config import Place, config_path
+from weather_mcp.days import label, which_day
 
 if TYPE_CHECKING:
     from weather_mcp.cache import Answer, CachedClient
@@ -116,12 +117,16 @@ def _sentence(answer: Answer, where: str) -> str:
 
 
 #: The days a forecast can be asked for, by how many days ahead they are.
-DAYS = {"today": 0, "tomorrow": 1}
 #: The parts of a day said, by the Oslo hour each begins and ends. The hours before 06:00
 #: and the 23:00 hour belong to no part, though they still count toward the range, rain and wind.
 PARTS = (("in the morning", 6, 12), ("at midday", 12, 17), ("in the evening", 17, 23))
 #: What "today" hears once MET's first hour is already tomorrow's: the day is over, not early.
 NEARLY_OVER = "Today is nearly over. Ask for tomorrow instead."
+#: What a word that names no day hears: a question back, never a guess.
+WHICH = "Which day? Say today, tomorrow, a weekday or a date such as 20.11."
+PASSED = "That day has passed. Ask for today or a day to come."
+#: The Oslo hour the evening begins: a day is whole once MET's forecast reaches it.
+EVENING = PARTS[-1][1]
 
 
 @dataclass(frozen=True)
@@ -133,12 +138,42 @@ class Hour:
     wind: float
     rain: float
     symbol: str
+    #: Whether the hour comes from a six-hour block, as MET gives beyond the first days.
+    coarse: bool = False
+
+
+def _block(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
+    """The stretch an entry's sky and rain are for, and how many hours it covers; none at the end."""
+    for key, length in (("next_1_hours", 1), ("next_6_hours", 6)):
+        if key in data:
+            return data[key], length
+    return {}, 0
+
+
+def _counted_rain(series: list[dict[str, Any]]) -> list[float]:
+    """Each entry's rain, with none counted twice where its stretch overlaps one already counted.
+
+    MET's hours carry next_1_hours; further ahead an entry carries only next_6_hours, which holds
+    six hours' worth. Should an hour that gives only its block be followed by hours of their own,
+    their rain is already in the block. The rain falls on the day its stretch begins.
+    """
+    counted: dt.datetime | None = None
+    rains = []
+    for entry in series:
+        at = dt.datetime.fromisoformat(entry["time"])
+        later, length = _block(entry["data"])
+        rain = float(later.get("details", {}).get("precipitation_amount", 0.0))
+        # RULE: rain is counted once for each stretch of time
+        rains.append(rain if counted is None or at >= counted else 0.0)
+        if length:
+            counted = max(counted or at, at + dt.timedelta(hours=length))
+    return rains
 
 
 def _hours_on(series: list[dict[str, Any]], date: dt.date, *, after: dt.datetime) -> list[Hour]:
     """The hours MET gives for `date` in Oslo, from the hour that is now on."""
     hours = []
-    for entry in series:
+    for entry, rain in zip(series, _counted_rain(series), strict=True):
         at = dt.datetime.fromisoformat(entry["time"]).astimezone(OSLO)
         # RULE: a forecast holds only its own day
         if at.date() != date:
@@ -146,21 +181,48 @@ def _hours_on(series: list[dict[str, Any]], date: dt.date, *, after: dt.datetime
         # RULE: today leaves out what has passed
         if at < after.replace(minute=0, second=0, microsecond=0):
             continue
-        data = entry["data"]
-        # Today and tomorrow are hourly in MET's answer. Further ahead an hour may carry only
-        # next_6_hours, whose rain is six hours' worth, so a tool reaching there must not sum it.
-        later = data.get("next_1_hours") or data.get("next_6_hours") or {}
-        details = data["instant"]["details"]
+        later, length = _block(entry["data"])
+        details = entry["data"]["instant"]["details"]
         hours.append(
             Hour(
                 at=at,
                 temperature=float(details["air_temperature"]),
                 wind=float(details.get("wind_speed", 0.0)),
-                rain=float(later.get("details", {}).get("precipitation_amount", 0.0)),
+                rain=rain,
                 symbol=str(later.get("summary", {}).get("symbol_code", "")),
+                coarse=length > 1,
             )
         )
     return hours
+
+
+def _last_whole_day(series: list[dict[str, Any]]) -> dt.date | None:
+    """The last day MET's forecast reaches into the evening of, by Oslo time."""
+    last = None
+    for entry in series:
+        at = dt.datetime.fromisoformat(entry["time"]).astimezone(OSLO)
+        if _block(entry["data"])[1] and at.hour >= EVENING:
+            last = at.date()
+    return last
+
+
+def _within_a_sentence(date: dt.date, today: dt.date) -> str:
+    """How `date` is said inside a sentence: "tomorrow" lower-case, a weekday as a name."""
+    name = label(date, today)
+    return name.lower() if name == "Tomorrow" else name
+
+
+def _missing(date: dt.date, now: dt.datetime, hours: list[Hour], series: list[dict[str, Any]]) -> str:
+    """Why MET has no forecast to give for `date`, or "" when it has one."""
+    if date == now.date():
+        return "" if hours else NEARLY_OVER
+    last = _last_whole_day(series)
+    if last is not None and date <= last:
+        return ""
+    if last is None or last <= now.date():
+        return f"MET has no forecast for {_within_a_sentence(date, now.date())} yet."
+    # RULE: a day past the forecast says how far it reaches
+    return f"MET's forecast reaches to {label(last, now.date())}."
 
 
 def _span(low: float, high: float) -> str:
@@ -214,6 +276,9 @@ def _day_sentence(hours: list[Hour]) -> str:
     wind = round(max(h.wind for h in hours))
     unit = "metre" if wind == 1 else "metres"
     span = _span(min(temperatures), max(temperatures))
+    if any(h.coarse for h in hours):
+        # RULE: a day in six-hour blocks says about for its range
+        span = f"about {span}"
     say = f"{span}, {_amount(hours)} and wind up to {wind} {unit} a second"
     parts = _parts(hours)
     return f"{say}; {parts}." if parts else f"{say}."
@@ -267,20 +332,27 @@ class Weather:
         lon: float | None = None,
         accuracy_m: float | None = None,
     ) -> dict[str, Any]:
-        """Today or tomorrow in one sentence: the range, rain, wind and the day in three parts."""
+        """Any day MET covers, in one sentence: the range, rain, wind and the day in three parts."""
+        now = self._cache.now().astimezone(OSLO)
+        date = which_day(day, now.date())
+        if date is None:
+            # RULE: an unknown day is asked about not guessed
+            return {"success": False, "say": WHICH}
+        if date < now.date():
+            # RULE: a day already gone is refused
+            return {"success": False, "say": PASSED}
         found = await self._look_up(place, lat, lon)
         if isinstance(found, dict):
             return found
         where, answer = found
-        today = self._cache.now().astimezone(OSLO)
-        date = today.date() + dt.timedelta(days=DAYS[day])
-        hours = _hours_on(answer.data["properties"]["timeseries"], date, after=today)
-        if not hours:
-            return {
-                "success": False,
-                "say": NEARLY_OVER if date == today.date() else f"MET has no forecast for {day} yet.",
-            }
-        say = f"{day.capitalize()} {_spoken(where)}: {_day_sentence(hours)}" + _rough(where, accuracy_m)
+        series = answer.data["properties"]["timeseries"]
+        hours = _hours_on(series, date, after=now)
+        missing = _missing(date, now, hours, series)
+        if missing:
+            return {"success": False, "say": missing}
+        say = f"{label(date, now.date())} {_spoken(where)}: {_day_sentence(hours)}" + _rough(
+            where, accuracy_m
+        )
         return {"success": True, "say": say, "place": where.name}
 
     async def _look_up(

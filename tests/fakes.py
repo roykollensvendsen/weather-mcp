@@ -88,6 +88,39 @@ def hourly(at, start: dt.datetime = START, hours: int = 60) -> dict[str, object]
     return body
 
 
+def met_like(at, start: dt.datetime = START) -> dict[str, object]:
+    """A forecast shaped as MET's compact one is (read 2026-11-17): hourly, then in 6-hour blocks.
+
+    Sixty hourly entries carry next_1_hours and next_6_hours both. Then come entries six hours
+    apart, at 00, 06, 12 and 18 UTC, which carry next_6_hours only, to about nine and a half
+    days; the last entry carries no block at all. `at(local)` is as for `hourly`, with rain per
+    hour, so a block holds six hours' worth.
+    """
+    oslo = zoneinfo.ZoneInfo("Europe/Oslo")
+    times = [start + dt.timedelta(hours=n) for n in range(60)]
+    while times[-1] < start + dt.timedelta(days=9, hours=12):
+        times.append(times[-1] + dt.timedelta(hours=6 if times[-1].hour % 6 == 0 else 1))
+    series = []
+    for n, time in enumerate(times):
+        temperature, symbol, rain, wind = at(time.astimezone(oslo))
+        data: dict[str, object] = {
+            "instant": {"details": {"air_temperature": temperature, "wind_speed": wind}}
+        }
+        block = {"summary": {"symbol_code": symbol}, "details": {"precipitation_amount": rain * 6}}
+        if n < 60:
+            data["next_1_hours"] = {
+                "summary": {"symbol_code": symbol},
+                "details": {"precipitation_amount": rain},
+            }
+            data["next_6_hours"] = block
+        elif n < len(times) - 1:
+            data["next_6_hours"] = block
+        series.append({"time": time.strftime("%Y-%m-%dT%H:%M:%SZ"), "data": data})
+    body = forecast()
+    body["properties"]["timeseries"] = series  # type: ignore[index]
+    return body
+
+
 #: Kartverket's type codes, which its /sted filter takes (read 2026-11-15).
 KIND_CODES = {"By": "by", "Tettsted": "tettsted", "Tettbebyggelse": "tettbebyggelse", "Gard": "gard"}
 

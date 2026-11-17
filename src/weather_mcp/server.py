@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any
 
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
@@ -23,6 +23,12 @@ INSTRUCTIONS = (
 )
 #: Changes nothing anywhere; it only reads the forecast.
 LOOKS = ToolAnnotations(read_only_hint=True)
+#: How a day may be given. The plugin works the date out itself, from today in Oslo.
+DAY = (
+    "The day asked about, as the owner said it, in Norwegian or English: 'today', 'i morgen',"
+    " a weekday such as 'fredag' or 'on Friday', 'neste fredag', or a date such as '20.11'."
+    " Tomorrow if not said."
+)
 #: What the voice hears when weather-mcp itself fails, so it never hears only that the tool failed.
 BROKE = "That went wrong inside weather-mcp. Try again, and if it fails again, check its log."
 #: The voice gives up on a call after about 15 seconds; every answer comes before then.
@@ -126,15 +132,14 @@ def build_server(
 
     @server.tool(
         annotations=LOOKS,
-        description="The forecast for today or tomorrow, in one sentence: the temperature range,"
-        " rain, wind, and the sky in the morning, at midday and in the evening. Send the phone's"
-        " position as lat, lon and accuracy_m when you have it; a named place comes first, and"
-        " with neither it is home. Data from MET Norway and Kartverket.",
+        description="The forecast for one day, up to about nine days ahead, in one sentence: the"
+        " temperature range, rain, wind, and the sky in the morning, at midday and in the evening."
+        " Use it when one day is asked about; for the coming days together use weather_week."
+        " Send the phone's position as lat, lon and accuracy_m when you have it; a named place"
+        " comes first, and with neither it is home. Data from MET Norway and Kartverket.",
     )
     async def weather_forecast(
-        day: Annotated[
-            Literal["today", "tomorrow"], Field(description="The day asked about; tomorrow if not said.")
-        ] = "tomorrow",
+        day: Annotated[str, Field(description=DAY)] = "tomorrow",
         place: str | None = None,
         lat: Lat = None,
         lon: Lon = None,
