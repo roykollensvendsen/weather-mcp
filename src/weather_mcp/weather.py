@@ -127,6 +127,16 @@ WHICH = "Which day? Say today, tomorrow, a weekday or a date such as 20.11."
 PASSED = "That day has passed. Ask for today or a day to come."
 #: The Oslo hour the evening begins: a day is whole once MET's forecast reaches it.
 EVENING = PARTS[-1][1]
+#: How many days the week gives, from tomorrow, when no last day is asked.
+WEEK_DAYS = 5
+#: The wind, in metres a second, from which a week line says it.
+WINDY = 10
+#: How far apart, in degrees, two days' lows and highs may be and still be said together.
+ALIKE = 2
+#: A day with less rain or snow than this, in millimetres, is said as dry.
+DRY = 1.0
+SOONER = "For today alone, ask for today's forecast."
+NO_WEEK = "MET has no forecast for the coming days yet."
 
 
 @dataclass(frozen=True)
@@ -225,6 +235,13 @@ def _missing(date: dt.date, now: dt.datetime, hours: list[Hour], series: list[di
     return f"MET's forecast reaches to {label(last, now.date())}."
 
 
+def _range(low: float, high: float, *, coarse: bool) -> str:
+    """The range as said, "about" first when it comes from six-hour blocks, whose few readings miss peaks."""
+    span = _span(low, high)
+    # RULE: a day in six-hour blocks says about for its range
+    return f"about {span}" if coarse else span
+
+
 def _span(low: float, high: float) -> str:
     def said(value: int) -> str:
         return f"minus {-value}" if value < 0 else str(value)
@@ -275,13 +292,122 @@ def _day_sentence(hours: list[Hour]) -> str:
     temperatures = [h.temperature for h in hours]
     wind = round(max(h.wind for h in hours))
     unit = "metre" if wind == 1 else "metres"
-    span = _span(min(temperatures), max(temperatures))
-    if any(h.coarse for h in hours):
-        # RULE: a day in six-hour blocks says about for its range
-        span = f"about {span}"
+    span = _range(min(temperatures), max(temperatures), coarse=any(h.coarse for h in hours))
     say = f"{span}, {_amount(hours)} and wind up to {wind} {unit} a second"
     parts = _parts(hours)
     return f"{say}; {parts}." if parts else f"{say}."
+
+
+@dataclass(frozen=True)
+class Day:
+    """One day of the coming days, as its line in the week says it."""
+
+    date: dt.date
+    low: float
+    high: float
+    rain: float
+    #: "dry", or what comes down: rain, sleet, snow, or rain and snow.
+    falls: str
+    wind: float
+    coarse: bool
+
+
+def _day(date: dt.date, hours: list[Hour]) -> Day:
+    temperatures = [h.temperature for h in hours]
+    rain = sum(h.rain for h in hours)
+    return Day(
+        date=date,
+        low=min(temperatures),
+        high=max(temperatures),
+        rain=rain,
+        falls="dry" if rain < DRY else _falls(hours),
+        wind=max(h.wind for h in hours),
+        coarse=any(h.coarse for h in hours),
+    )
+
+
+def _alike(one: Day, other: Day) -> bool:
+    """Whether two days sound alike: the same rain or dry, strong wind on both or neither, near ranges."""
+    return (
+        one.falls == other.falls
+        and (one.wind >= WINDY) == (other.wind >= WINDY)
+        and abs(one.low - other.low) <= ALIKE
+        and abs(one.high - other.high) <= ALIKE
+    )
+
+
+def _groups(days: list[Day]) -> list[list[Day]]:
+    """The days in runs that sound alike, each run said as one line."""
+    groups: list[list[Day]] = []
+    for day in days:
+        if groups and _alike(groups[-1][0], day):
+            # RULE: days that sound alike are said together
+            groups[-1].append(day)
+        else:
+            groups.append([day])
+    return groups
+
+
+def _names(group: list[Day], today: dt.date) -> str:
+    """A run's days as said: "Friday", "Friday and Saturday", "Friday to Sunday"."""
+    first, last = label(group[0].date, today), label(group[-1].date, today)
+    if len(group) == 1:
+        return first
+    return f"{first} and {last}" if len(group) == 2 else f"{first} to {last}"  # noqa: PLR2004 - two days
+
+
+def _line(group: list[Day], today: dt.date) -> str:
+    """One run of alike days: its names, range, rain or dry, and the wind when it is strong."""
+    span = _range(min(d.low for d in group), max(d.high for d in group), coarse=any(d.coarse for d in group))
+    wind = round(max(d.wind for d in group))
+    # RULE: a week line says the wind only when it is strong
+    windy = f", wind up to {wind}" if wind >= WINDY else ""
+    return f"{_names(group, today)}: {span}, {group[0].falls}{windy}."
+
+
+def _wettest(days: list[Day], today: dt.date) -> str:
+    """The week's last sentence: its wettest and its driest day, or that every day is dry."""
+    wettest, driest = max(days, key=lambda d: d.rain), min(days, key=lambda d: d.rain)
+    if wettest.rain < DRY:
+        return "Dry every day."
+    whole = round(wettest.rain)
+    amount = f"{whole} {'millimetre' if whole == 1 else 'millimetres'}"
+    wet, dry = _within_a_sentence(wettest.date, today), _within_a_sentence(driest.date, today)
+    # RULE: the week ends with its wettest and driest day
+    return f"Wettest is {wet}, with {amount}; driest is {dry}."
+
+
+def _week_refusal(end: dt.date | None, today: dt.date) -> str:
+    """Why a week up to `end` cannot be given, or "" when it can."""
+    if end is None:
+        return WHICH
+    if end < today:
+        return PASSED
+    return SOONER if end == today else ""
+
+
+def _week_end(until: str | None, today: dt.date) -> dt.date | None:
+    """The last of the coming days: the one asked for, else five days from today."""
+    return today + dt.timedelta(days=WEEK_DAYS) if until is None else which_day(until, today)
+
+
+def _coming_days(series: list[dict[str, Any]], now: dt.datetime, end: dt.date) -> tuple[str, str] | None:
+    """How the coming days to `end` begin and their lines, or None when MET covers none of them."""
+    today = now.date()
+    last = _last_whole_day(series)
+    if last is None or last <= today:
+        return None
+    # RULE: the week stops where the forecast does
+    end = min(end, last)
+    days = [_day(d, _hours_on(series, d, after=now)) for d in _dates(today, end)]
+    lines = " ".join(_line(group, today) for group in _groups(days))
+    said = f"The next {len(days)} days" if len(days) > 1 else "The next day"
+    return said, f"{lines} {_wettest(days, today)}"
+
+
+def _dates(today: dt.date, end: dt.date) -> list[dt.date]:
+    """The days from tomorrow to `end`, both counted."""
+    return [today + dt.timedelta(days=n) for n in range(1, (end - today).days + 1)]
 
 
 #: The longest place name said back, in letters. Names longer than this are cut, not refused.
@@ -353,6 +479,32 @@ class Weather:
         say = f"{label(date, now.date())} {_spoken(where)}: {_day_sentence(hours)}" + _rough(
             where, accuracy_m
         )
+        return {"success": True, "say": say, "place": where.name}
+
+    async def week(
+        self,
+        place: str | None = None,
+        *,
+        until: str | None = None,
+        lat: float | None = None,
+        lon: float | None = None,
+        accuracy_m: float | None = None,
+    ) -> dict[str, Any]:
+        """The coming days from tomorrow, a short line each: five days, or up to `until`."""
+        now = self._cache.now().astimezone(OSLO)
+        end = _week_end(until, now.date())
+        refused = _week_refusal(end, now.date())
+        if refused or end is None:
+            return {"success": False, "say": refused}
+        found = await self._look_up(place, lat, lon)
+        if isinstance(found, dict):
+            return found
+        where, answer = found
+        coming = _coming_days(answer.data["properties"]["timeseries"], now, end)
+        if coming is None:
+            return {"success": False, "say": NO_WEEK}
+        said, lines = coming
+        say = f"{said} {_spoken(where)}: {lines}" + _rough(where, accuracy_m)
         return {"success": True, "say": say, "place": where.name}
 
     async def _look_up(

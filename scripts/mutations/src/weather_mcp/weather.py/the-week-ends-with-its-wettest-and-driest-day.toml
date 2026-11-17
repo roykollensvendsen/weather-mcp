@@ -1,0 +1,5 @@
+[[rule]]
+name = "the week ends with its wettest and driest day"
+file = "src/weather_mcp/weather.py"
+find = '^    return f"Wettest is \{wet\}, '
+replace = 'return ""'

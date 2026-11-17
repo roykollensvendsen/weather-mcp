@@ -1,5 +1,5 @@
 [[rule]]
 name = "a day in six-hour blocks says about for its range"
 file = "src/weather_mcp/weather.py"
-find = '^        span = f"about \{span\}"$'
-replace = 'pass'
+find = '^    return f"about \{span\}" if coarse else span$'
+replace = 'return span'
