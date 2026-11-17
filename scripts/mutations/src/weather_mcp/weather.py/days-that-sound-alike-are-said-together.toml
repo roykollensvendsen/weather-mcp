@@ -1,0 +1,5 @@
+[[rule]]
+name = "days that sound alike are said together"
+file = "src/weather_mcp/weather.py"
+find = '^            groups\[-1\]\.append\(day\)$'
+replace = 'groups.append([day])'

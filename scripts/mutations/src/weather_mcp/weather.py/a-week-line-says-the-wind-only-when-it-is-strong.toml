@@ -1,0 +1,5 @@
+[[rule]]
+name = "a week line says the wind only when it is strong"
+file = "src/weather_mcp/weather.py"
+find = '^    windy = f", wind up to \{wind\}" if wind >= WINDY else ""$'
+replace = 'windy = f", wind up to {wind}"'

@@ -1,0 +1,5 @@
+[[rule]]
+name = "the week stops where the forecast does"
+file = "src/weather_mcp/weather.py"
+find = '^    end = min\(end, last\)$'
+replace = 'pass'

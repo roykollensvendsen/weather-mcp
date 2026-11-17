@@ -29,6 +29,11 @@ DAY = (
     " a weekday such as 'fredag' or 'on Friday', 'neste fredag', or a date such as '20.11'."
     " Tomorrow if not said."
 )
+#: How the last day of the coming days may be given.
+UNTIL = (
+    "The last day to cover, as the owner said it: 'søndag' or 'Sunday' for the rest of the week,"
+    " or a weekday or date such as '23.11'. Five days from tomorrow if not said."
+)
 #: What the voice hears when weather-mcp itself fails, so it never hears only that the tool failed.
 BROKE = "That went wrong inside weather-mcp. Try again, and if it fails again, check its log."
 #: The voice gives up on a call after about 15 seconds; every answer comes before then.
@@ -89,7 +94,7 @@ SAID_SIMULATED = "Simulated: "
 def build_server(
     weather: Weather, *, answer_within: float = ANSWER_WITHIN, simulated: bool = False
 ) -> MCPServer[Any]:
-    """The MCP server with weather_now and weather_forecast; made-up, and saying so, if simulated."""
+    """The MCP server with the three weather tools; made-up, and saying so, if simulated."""
     hide_query_strings()
     server: MCPServer[Any] = MCPServer(
         name="weather-simulated" if simulated else "weather",
@@ -147,6 +152,26 @@ def build_server(
     ) -> dict[str, Any]:
         return await _answer(
             "weather_forecast", weather.forecast(place, day=day, lat=lat, lon=lon, accuracy_m=accuracy_m)
+        )
+
+    @server.tool(
+        annotations=LOOKS,
+        description="The coming days in a few short sentences: one line a day with the temperature"
+        " range, rain, snow or dry, and the wind when it is strong, with alike days said together;"
+        " then the wettest and the driest day. Five days from tomorrow, or up to 'until'. Use it for"
+        " 'the coming days', 'this week' or 'the rest of the week'; for one day use weather_forecast."
+        " Send the phone's position as lat, lon and accuracy_m when you have it; a named place"
+        " comes first, and with neither it is home. Data from MET Norway and Kartverket.",
+    )
+    async def weather_week(
+        until: Annotated[str | None, Field(description=UNTIL)] = None,
+        place: str | None = None,
+        lat: Lat = None,
+        lon: Lon = None,
+        accuracy_m: Accuracy = None,
+    ) -> dict[str, Any]:
+        return await _answer(
+            "weather_week", weather.week(place, until=until, lat=lat, lon=lon, accuracy_m=accuracy_m)
         )
 
     return server
