@@ -5,6 +5,7 @@ The fake's clock is 13:00 in Oslo on Saturday 14 November 2026, and the sky is c
 
 import asyncio
 import datetime as dt
+import logging
 
 import httpx
 import pytest
@@ -158,3 +159,15 @@ def test_the_radar_is_given_a_few_seconds():
 )
 def test_a_single_step_of_speckle_is_not_a_change(rates, said):
     assert _say(rates) == f"{NOW} {said}"
+
+
+def test_a_seeing_radar_with_no_rain_rate_is_logged(caplog):
+    """Should MET rename the field, the log says so, rather than the sentence just going quiet."""
+    unrated = radar([DRY] * TWO_HOURS)
+    for step in unrated["properties"]["timeseries"]:
+        del step["data"]["instant"]["details"]["precipitation_rate"]
+    with caplog.at_level(logging.WARNING):
+        answer = ask(api=FakeApi(nowcast=unrated))
+    assert answer["say"] == NOW
+    assert "precipitation_rate" in caplog.text
+    assert "61.00" not in caplog.text
