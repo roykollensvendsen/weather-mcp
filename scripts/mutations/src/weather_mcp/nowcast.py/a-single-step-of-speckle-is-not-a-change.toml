@@ -1,0 +1,5 @@
+[[rule]]
+name = "a single step of speckle is not a change"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    change = next\(\(ahead\[n\]\[0\] for n in range\(len\(wet\)\) if wet\[0\] not in wet\[n : n \+ SETTLED\]\), None\)$'''
+replace = '''change = next((ahead[n][0] for n in range(len(wet)) if wet[n] != wet[0]), None)'''
