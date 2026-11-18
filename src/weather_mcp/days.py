@@ -47,6 +47,8 @@ LEADS = ("på ", "on ", "this ")
 NEXT = ("next ", "neste ")
 #: A date as 20.11, 20.11. or 20.11.2026.
 DATE = re.compile(r"^(\d{1,2})\.(\d{1,2})\.?(\d{4})?$")
+#: Marks a voice's text may end in, which never change the day: "fredag?", "Friday.".
+TRAILING = "?!.,; "
 #: How many days back a date without a year may lie and still be this year's.
 RECENT = 30
 #: Days in a week: from this far ahead, a weekday's name alone could mean two days.
@@ -55,7 +57,8 @@ WEEK = 7
 
 def which_day(said: str, today: dt.date) -> dt.date | None:
     """The date `said` names, counting from `today`, or None when it names no day."""
-    words = " ".join(said.lower().split())
+    # RULE: trailing punctuation is left out
+    words = " ".join(said.lower().rstrip(TRAILING).split())
     if words in NAMED:
         return today + dt.timedelta(days=NAMED[words])
     return _weekday(words, today) or _date(words, today)

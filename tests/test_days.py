@@ -90,3 +90,9 @@ def test_a_word_that_names_no_day_means_none(said):
 def test_a_day_is_said_by_its_name_and_by_its_date_once_a_week_away(day, said):
     """Within the week a weekday is enough; a week or more away, the same name needs its date."""
     assert label(day, TODAY) == said
+
+
+@pytest.mark.parametrize("said", ["fredag?", "Friday.", "på fredag!", "fredag, ", "fredag?!"])
+def test_trailing_punctuation_is_left_out(said):
+    """A voice's text can end in a question mark or a full stop; the day is still the day."""
+    assert which_day(said, TODAY) == NOV[20]
