@@ -1,0 +1,5 @@
+[[rule]]
+name = "a missing rain rate is logged once for each answer from met"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    if fresh and seen and not rated:$'''
+replace = '''if seen and not rated:'''

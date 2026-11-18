@@ -1,5 +1,5 @@
 [[rule]]
 name = "a seeing radar with no rain rate is logged"
 file = "src/weather_mcp/nowcast.py"
-find = '''^    if steps and not rated:$'''
+find = '''^    if fresh and seen and not rated:$'''
 replace = '''if False:'''

@@ -11,7 +11,7 @@ import time
 import httpx
 import pytest
 from fakes import START, FakeApi, forecast, radar
-from test_weather_now import AGENT, HOME, ask
+from test_weather_now import AGENT, HOME, Voice, ask
 
 from weather_mcp import weather as weather_module
 from weather_mcp.cache import CachedClient
@@ -190,3 +190,18 @@ def test_the_forecast_and_the_radar_are_asked_at_once():
     answer = ask(api=api)
     assert answer["say"] == f"{NOW} Dry for the next two hours."
     assert time.monotonic() - began < 2.5
+
+
+def test_a_missing_rain_rate_is_logged_once_for_each_answer_from_met(caplog):
+    """The nowcast is kept until it expires; asking again within that logs nothing more."""
+    unrated = radar([DRY] * TWO_HOURS)
+    for step in unrated["properties"]["timeseries"]:
+        del step["data"]["instant"]["details"]["precipitation_rate"]
+    voice = Voice(FakeApi(nowcast=unrated))
+    try:
+        with caplog.at_level(logging.WARNING):
+            voice.now()
+            voice.now()
+    finally:
+        voice.close()
+    assert caplog.text.count("precipitation_rate") == 1
