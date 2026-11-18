@@ -2,17 +2,20 @@
 
 The weather in Norway by voice, from MET Norway's open data, as an MCP server and an optional claude-voice plugin.
 
-It gives a voice session three tools. `weather_now(place?, lat?, lon?, accuracy_m?)` says
+It gives a voice session four tools. `weather_now(place?, lat?, lon?, accuracy_m?)` says
 the weather right now. `weather_forecast(day?, place?, lat?, lon?, accuracy_m?)` says one
 day, up to about nine days ahead: the temperature range, rain, wind, and the sky in the
 morning, at midday and in the evening. `weather_week(until?, place?, lat?, lon?, accuracy_m?)`
 says the coming days, five from tomorrow or up to `until`, one short line a day, then the
-wettest and the driest.
+wettest and the driest. `weather_hours(from_time, to_time?, place?, day?, lat?, lon?,
+accuracy_m?)` says one clock hour, or the hours between two: "at 15", "from 14 to 18" or
+"tomorrow between 8 and 12".
 
 A day is said as the owner says it, in Norwegian or English: "i morgen", "fredag", "on
-Friday", "neste fredag" or "20.11". The plugin works the date out itself, from today in
+Friday", "neste fredag", "20.11" or "20. november". A time is "15", "15:00", "15.00",
+"kl. 15" or "3 pm"; a bare hour is on a 24-hour clock, and the answer says it back. The plugin works the date out itself, from today in
 Oslo. Beyond the first two and a half days MET gives six-hour blocks, so a range there
-starts with "about". All three read the same forecast from MET, so asking all three asks once.
+starts with "about". All four read the same forecast from MET, so asking them all asks once.
 A place is a name in Norway, as spoken: "Bergen", or "Moen i Agder" when a name is
 shared. The voice sends the phone's position, so "the weather here" is where you are.
 A named place comes first, then the position, then home. The answer is one short

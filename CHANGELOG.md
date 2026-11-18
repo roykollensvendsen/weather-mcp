@@ -12,3 +12,5 @@ versions follow [semantic versioning](https://semver.org/spec/v2.0.0.html).
   end, green in CI on the first commit.
 - The forecast for any day MET covers, said as a weekday, a date or "i morgen",
   and `weather_week` for the coming days in a few short lines.
+- `weather_hours` for one clock time or the hours between two, said as "15",
+  "kl. 15" or "3 pm", on any day the forecast covers.
