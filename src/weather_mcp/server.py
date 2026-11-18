@@ -165,8 +165,8 @@ def build_server(
         " comes first, and with neither it is home. Data from MET Norway and Kartverket.",
     )
     async def weather_week(
-        until: Annotated[str | None, Field(description=UNTIL)] = None,
         place: str | None = None,
+        until: Annotated[str | None, Field(description=UNTIL)] = None,
         lat: Lat = None,
         lon: Lon = None,
         accuracy_m: Accuracy = None,
