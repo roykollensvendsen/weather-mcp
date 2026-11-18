@@ -1,0 +1,5 @@
+[[rule]]
+name = "what the sky mostly was is weighed by hours"
+file = "src/weather_mcp/weather.py"
+find = '^    middle = skies\[start:end\]$'
+replace = 'middle = list(dict.fromkeys(skies[start:end]))'
