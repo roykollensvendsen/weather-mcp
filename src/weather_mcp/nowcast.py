@@ -15,8 +15,10 @@ NOWCAST = "https://api.met.no/weatherapi/nowcast/2.0/complete"
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 #: A rate below this, in millimetres an hour, is a trace the radar sees and nobody feels.
 TRACE = 0.1
-#: A reach of this many minutes or more is said as two hours, as MET names it.
-TWO_HOURS = 110
+#: A reach of this many minutes or more is said as two hours, as MET names it. A nowcast
+#: a few minutes old reaches a little short of that, and "105 minutes" helps nobody.
+# RULE: a reach near two hours is said as two hours
+TWO_HOURS = 100
 #: The fewest minutes ahead worth a sentence: one radar step.
 STEP = 5
 #: How many steps in a row a change must last to be said; one alone is speckle.

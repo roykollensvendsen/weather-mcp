@@ -61,6 +61,12 @@ def test_the_radars_reach_is_said_as_it_is():
     assert _say([DRY] * 13) == f"{NOW} Dry for the next 60 minutes."
 
 
+def test_a_reach_near_two_hours_is_said_as_two_hours():
+    """A nowcast a few minutes old reaches a little short of two hours; "105 minutes" is no help."""
+    assert _say([DRY] * 21) == f"{NOW} Dry for the next two hours."
+    assert _say([DRY] * 20) == f"{NOW} Dry for the next 95 minutes."
+
+
 def test_past_radar_steps_are_left_out():
     """Rain half an hour ago is over; the step under way is the first that counts."""
     rates = [WET] * 6 + [DRY] * TWO_HOURS
