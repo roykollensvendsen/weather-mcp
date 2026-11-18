@@ -1,0 +1,5 @@
+[[rule]]
+name = "an hour skipped in spring means the next"
+file = "src/weather_mcp/clock.py"
+find = '^    return wall\.astimezone\(dt\.UTC\)\.astimezone\(OSLO\)$'
+replace = 'return wall'

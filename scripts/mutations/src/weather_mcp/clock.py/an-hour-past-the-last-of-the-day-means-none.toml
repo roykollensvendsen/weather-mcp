@@ -1,0 +1,5 @@
+[[rule]]
+name = "an hour past the last of the day means none"
+file = "src/weather_mcp/clock.py"
+find = '^    return hour if hour < DAY_HOURS else None$'
+replace = 'return hour'
