@@ -1,0 +1,5 @@
+[[rule]]
+name = "rain within the hour also says how soon"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    when = f\", in \{max\(soon // STEP \* STEP, STEP\)\} minutes\" if soon < HOUR else \"\"$'''
+replace = '''when = ""'''
