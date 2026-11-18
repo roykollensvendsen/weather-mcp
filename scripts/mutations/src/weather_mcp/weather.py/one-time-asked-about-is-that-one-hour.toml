@@ -1,0 +1,5 @@
+[[rule]]
+name = "one time asked about is that one hour"
+file = "src/weather_mcp/weather.py"
+find = '^    if last == first:$'
+replace = 'if False:'

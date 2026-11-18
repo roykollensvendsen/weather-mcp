@@ -1,0 +1,5 @@
+[[rule]]
+name = "an unknown time is asked about not guessed"
+file = "src/weather_mcp/weather.py"
+find = '^        return WHICH_TIME$'
+replace = 'return PASSED'

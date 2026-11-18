@@ -1,0 +1,5 @@
+[[rule]]
+name = "a time past the forecast says how far it reaches"
+file = "src/weather_mcp/weather.py"
+find = '^    return f\"MET.s forecast reaches to \{label\(end\.date\(\), today\)\} at \{end:%H:%M\}\.\"$'
+replace = 'return NO_TIME'

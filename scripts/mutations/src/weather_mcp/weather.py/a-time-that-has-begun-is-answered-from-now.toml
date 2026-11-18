@@ -1,0 +1,5 @@
+[[rule]]
+name = "a time that has begun is answered from now"
+file = "src/weather_mcp/weather.py"
+find = '^    since = max\(start, now\.replace\(minute=0, second=0, microsecond=0\)\)$'
+replace = 'since = start'

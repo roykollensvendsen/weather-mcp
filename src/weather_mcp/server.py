@@ -35,6 +35,18 @@ UNTIL = (
     "The last day to cover, as the owner said it: 'søndag' or 'Sunday' for the rest of the week,"
     " or a weekday or date such as '23.11'. Five days from tomorrow if not said."
 )
+#: How the hour asked about may be given.
+FROM = (
+    "The hour asked about, or the start of the span, as the owner said it: '15', '15:00', '15.00',"
+    " 'kl. 15', 'klokka 15' or '3 pm'. A bare hour is on a 24-hour clock."
+)
+#: How the end of a span may be given.
+TO = (
+    "The end of the span, said as from_time is: 'from 14 to 18' is from_time '14' and to_time"
+    " '18'. Leave it out for one hour."
+)
+#: How the day of a time may be given.
+WHEN = "The day, said as for weather_forecast: 'today', 'i morgen', 'fredag' or '20.11'. Today if not said."
 #: What the voice hears when weather-mcp itself fails, so it never hears only that the tool failed.
 BROKE = "That went wrong inside weather-mcp. Try again, and if it fails again, check its log."
 #: The voice gives up on a call after about 15 seconds; every answer comes before then.
@@ -95,7 +107,7 @@ SAID_SIMULATED = "Simulated: "
 def build_server(
     weather: Weather, *, answer_within: float = ANSWER_WITHIN, simulated: bool = False
 ) -> MCPServer[Any]:
-    """The MCP server with the three weather tools; made-up, and saying so, if simulated."""
+    """The MCP server with the four weather tools; made-up, and saying so, if simulated."""
     hide_query_strings()
     server: MCPServer[Any] = MCPServer(
         name="weather-simulated" if simulated else "weather",
@@ -140,7 +152,8 @@ def build_server(
         annotations=LOOKS,
         description="The forecast for one day, up to about nine days ahead, in one sentence: the"
         " temperature range, rain, wind, and the sky in the morning, at midday and in the evening."
-        " Use it when one day is asked about; for the coming days together use weather_week."
+        " Use it when one day is asked about; for a time of day use weather_hours, and for the"
+        " coming days together use weather_week."
         " Send the phone's position as lat, lon and accuracy_m when you have it; a named place"
         " comes first, and with neither it is home. Data from MET Norway and Kartverket.",
     )
@@ -174,5 +187,28 @@ def build_server(
         return await _answer(
             "weather_week", weather.week(place, until=until, lat=lat, lon=lon, accuracy_m=accuracy_m)
         )
+
+    @server.tool(
+        annotations=LOOKS,
+        description="The weather at one clock time, or between two, in one sentence: the"
+        " temperature, the sky, rain and wind. Use it only when a time of day is named, such as"
+        " 'at 15' or 'from 14 to 18 tomorrow'; for a whole day use weather_forecast, and for the"
+        " coming days weather_week. Send the phone's position as lat, lon and accuracy_m when you"
+        " have it; a named place comes first, and with neither it is home."
+        " Data from MET Norway and Kartverket.",
+    )
+    async def weather_hours(  # noqa: PLR0913, PLR0917 - each input as the voice sends it
+        from_time: Annotated[str, Field(description=FROM)],
+        to_time: Annotated[str | None, Field(description=TO)] = None,
+        place: str | None = None,
+        day: Annotated[str, Field(description=WHEN)] = "today",
+        lat: Lat = None,
+        lon: Lon = None,
+        accuracy_m: Accuracy = None,
+    ) -> dict[str, Any]:
+        asked = weather.hours(
+            place, from_time=from_time, to_time=to_time, day=day, lat=lat, lon=lon, accuracy_m=accuracy_m
+        )
+        return await _answer("weather_hours", asked)
 
     return server

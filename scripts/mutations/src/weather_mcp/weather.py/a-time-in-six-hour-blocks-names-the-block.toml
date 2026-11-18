@@ -1,0 +1,5 @@
+[[rule]]
+name = "a time in six hour blocks names the block"
+file = "src/weather_mcp/weather.py"
+find = '^    return f\" MET gives six-hour steps that far ahead, so this is for \{hours\[0\]\.at:%H:%M\} to \{last:%H:%M\}\.\"$'
+replace = 'return ""'

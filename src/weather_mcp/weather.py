@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from weather_mcp.cache import RefusedError, SlowedDownError, UpstreamError
+from weather_mcp.clock import at_hour, which_hour
 from weather_mcp.config import Place, config_path
 from weather_mcp.days import label, which_day
 
@@ -137,6 +138,10 @@ ALIKE = 2
 DRY = 1.0
 SOONER = "For today alone, ask for today's forecast."
 NO_WEEK = "MET has no forecast for the coming days yet."
+WHICH_TIME = "Which time? Say an hour such as 15 or 15:00."
+NO_TIME = "MET has no forecast for that time yet."
+#: The hours a block covers beyond MET's first days.
+SIX_HOURS = 6
 
 
 @dataclass(frozen=True)
@@ -191,19 +196,22 @@ def _hours_on(series: list[dict[str, Any]], date: dt.date, *, after: dt.datetime
         # RULE: today leaves out what has passed
         if at < after.replace(minute=0, second=0, microsecond=0):
             continue
-        later, length = _block(entry["data"])
-        details = entry["data"]["instant"]["details"]
-        hours.append(
-            Hour(
-                at=at,
-                temperature=float(details["air_temperature"]),
-                wind=float(details.get("wind_speed", 0.0)),
-                rain=rain,
-                symbol=str(later.get("summary", {}).get("symbol_code", "")),
-                coarse=length > 1,
-            )
-        )
+        hours.append(_hour(entry, rain))
     return hours
+
+
+def _hour(entry: dict[str, Any], rain: float) -> Hour:
+    """One entry of MET's series as an hour in Oslo, with the rain counted for it."""
+    later, length = _block(entry["data"])
+    details = entry["data"]["instant"]["details"]
+    return Hour(
+        at=dt.datetime.fromisoformat(entry["time"]).astimezone(OSLO),
+        temperature=float(details["air_temperature"]),
+        wind=float(details.get("wind_speed", 0.0)),
+        rain=rain,
+        symbol=str(later.get("summary", {}).get("symbol_code", "")),
+        coarse=length > 1,
+    )
 
 
 def _last_whole_day(series: list[dict[str, Any]]) -> dt.date | None:
@@ -413,6 +421,132 @@ def _dates(today: dt.date, end: dt.date) -> list[dt.date]:
     return [today + dt.timedelta(days=n) for n in range(1, (end - today).days + 1)]
 
 
+def _later(at: dt.datetime, hours: int) -> dt.datetime:
+    """`hours` after `at` as time passes, said in Oslo; a clock change counts as it falls."""
+    return (at.astimezone(dt.UTC) + dt.timedelta(hours=hours)).astimezone(OSLO)
+
+
+def _window(date: dt.date, first: int, last: int) -> tuple[dt.datetime, dt.datetime]:
+    """The stretch from hour `first` on `date` to hour `last`, which may be after midnight."""
+    start = at_hour(date, first)
+    if last == first:
+        # RULE: one time asked about is that one hour
+        return start, _later(start, 1)
+    # RULE: an end before the start runs past midnight
+    end_day = date if last > first else date + dt.timedelta(days=1)
+    return start, at_hour(end_day, last)
+
+
+def _asked(
+    day: str, from_time: str, to_time: str | None, now: dt.datetime
+) -> tuple[dt.datetime, dt.datetime] | str:
+    """The stretch of time asked about, or the sentence saying why there is none."""
+    date = which_day(day, now.date())
+    if date is None:
+        return WHICH
+    first, last = which_hour(from_time), which_hour(to_time or from_time)
+    if first is None or last is None:
+        # RULE: an unknown time is asked about not guessed
+        return WHICH_TIME
+    if date < now.date():
+        return PASSED
+    start, end = _window(date, first, last)
+    if end <= now:
+        # RULE: a time already gone is refused
+        return f"{start:%H:%M} has passed. Ask for a time to come."
+    return start, end
+
+
+def _hours_between(series: list[dict[str, Any]], start: dt.datetime, end: dt.datetime) -> list[Hour]:
+    """The hours, or six-hour blocks, MET gives for any of the time from `start` to `end`."""
+    hours = []
+    for entry, rain in zip(series, _counted_rain(series), strict=True):
+        at = dt.datetime.fromisoformat(entry["time"])
+        length = _block(entry["data"])[1]
+        # RULE: an hour counts when its stretch overlaps the time asked about
+        if length and at < end and at + dt.timedelta(hours=length) > start:
+            hours.append(_hour(entry, rain))
+    return hours
+
+
+def _reach(series: list[dict[str, Any]], today: dt.date) -> str:
+    """How far MET's forecast reaches, for a time beyond it."""
+    ends = [
+        dt.datetime.fromisoformat(e["time"]) + dt.timedelta(hours=n)
+        for e in series
+        if (n := _block(e["data"])[1])
+    ]
+    if not ends:
+        return NO_TIME
+    end = max(ends).astimezone(OSLO)
+    # RULE: a time past the forecast says how far it reaches
+    return f"MET's forecast reaches to {label(end.date(), today)} at {end:%H:%M}."
+
+
+def _sky_over(hours: list[Hour]) -> str:
+    """The sky through the hours: one sky, or the first and the last when it changes."""
+    skies = [said for h in hours if (said := sky_words(h.symbol))]
+    if not skies:
+        return ""
+    # RULE: a sky that changes is said as it goes
+    if skies[0] != skies[-1]:
+        return f"{skies[0]}, then {skies[-1]}"
+    return max(skies, key=skies.count)
+
+
+def _hours_sentence(hours: list[Hour]) -> str:
+    """The temperature, sky, rain and wind through the hours, as one short sentence."""
+    said = [_hours_range(hours), _sky_over(hours), _hours_rain(hours), _hours_wind(hours)]
+    return ", ".join(words for words in said if words) + "."
+
+
+def _hours_range(hours: list[Hour]) -> str:
+    temperatures = [h.temperature for h in hours]
+    return _range(min(temperatures), max(temperatures), coarse=any(h.coarse for h in hours))
+
+
+def _hours_rain(hours: list[Hour]) -> str:
+    return "dry" if sum(h.rain for h in hours) == 0 else _amount(hours)
+
+
+def _hours_wind(hours: list[Hour]) -> str:
+    """The wind, "up to" its strongest over more than one hour."""
+    wind = round(max(h.wind for h in hours))
+    unit = "metre" if wind == 1 else "metres"
+    return f"wind {'' if len(hours) == 1 else 'up to '}{wind} {unit} a second"
+
+
+def _block_note(hours: list[Hour]) -> str:
+    """For six-hour blocks, which hours the answer is really for; "" for MET's own hours."""
+    if not any(h.coarse for h in hours):
+        return ""
+    # RULE: a time in six hour blocks names the block
+    last = _later(hours[-1].at, SIX_HOURS if hours[-1].coarse else 1)
+    return f" MET gives six-hour steps that far ahead, so this is for {hours[0].at:%H:%M} to {last:%H:%M}."
+
+
+def _when(start: dt.datetime, since: dt.datetime, end: dt.datetime) -> str:
+    """The time asked about as said: "at 15:00", "from 14:00 to 18:00" or "from now to 18:00"."""
+    if end == _later(start, 1):
+        return f"at {start:%H:%M}"
+    begun = "now" if since > start else f"{start:%H:%M}"
+    return f"from {begun} to {end:%H:%M}"
+
+
+def _hours_said(
+    series: list[dict[str, Any]], asked: tuple[dt.datetime, dt.datetime], now: dt.datetime
+) -> tuple[str, str] | str:
+    """The answer's opening and its sentence for the time asked about, or why there is none."""
+    start, end = asked
+    # RULE: a time that has begun is answered from now
+    since = max(start, now.replace(minute=0, second=0, microsecond=0))
+    hours = _hours_between(series, since, end)
+    if not hours:
+        return _reach(series, now.date())
+    opening = f"{label(start.date(), now.date())} {_when(start, since, end)}"
+    return opening, _hours_sentence(hours) + _block_note(hours)
+
+
 #: The longest place name said back, in letters. Names longer than this are cut, not refused.
 ECHO = 40
 
@@ -508,6 +642,33 @@ class Weather:
             return {"success": False, "say": NO_WEEK}
         said, lines = coming
         say = f"{said} {_spoken(where)}: {lines}" + _rough(where, accuracy_m)
+        return {"success": True, "say": say, "place": where.name}
+
+    async def hours(  # noqa: PLR0913 - the times, the day and the place, each as the voice sends it
+        self,
+        place: str | None = None,
+        *,
+        from_time: str,
+        to_time: str | None = None,
+        day: str = "today",
+        lat: float | None = None,
+        lon: float | None = None,
+        accuracy_m: float | None = None,
+    ) -> dict[str, Any]:
+        """One clock hour, or the hours between two, in one sentence: range, sky, rain and wind."""
+        now = self._cache.now().astimezone(OSLO)
+        asked = _asked(day, from_time, to_time, now)
+        if isinstance(asked, str):
+            return {"success": False, "say": asked}
+        found = await self._look_up(place, lat, lon)
+        if isinstance(found, dict):
+            return found
+        where, answer = found
+        said = _hours_said(answer.data["properties"]["timeseries"], asked, now)
+        if isinstance(said, str):
+            return {"success": False, "say": said}
+        opening, sentence = said
+        say = f"{opening} {_spoken(where)}: {sentence}" + _rough(where, accuracy_m)
         return {"success": True, "say": say, "place": where.name}
 
     async def _look_up(

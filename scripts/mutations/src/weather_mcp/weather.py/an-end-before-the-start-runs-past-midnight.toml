@@ -1,0 +1,5 @@
+[[rule]]
+name = "an end before the start runs past midnight"
+file = "src/weather_mcp/weather.py"
+find = '^    end_day = date if last > first else date \+ dt\.timedelta\(days=1\)$'
+replace = 'end_day = date'

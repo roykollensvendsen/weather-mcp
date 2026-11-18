@@ -1,0 +1,5 @@
+[[rule]]
+name = "a time already gone is refused"
+file = "src/weather_mcp/weather.py"
+find = '^    if end <= now:$'
+replace = 'if False:'
