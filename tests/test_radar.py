@@ -11,6 +11,7 @@ import pytest
 from fakes import START, FakeApi, forecast, radar
 from test_weather_now import AGENT, HOME, ask
 
+from weather_mcp import weather as weather_module
 from weather_mcp.cache import CachedClient
 from weather_mcp.config import Config
 from weather_mcp.places import PlaceFinder
@@ -135,3 +136,14 @@ def test_a_radar_that_fails_leaves_the_answer_as_it_was_on_an_odd_answer():
     odd = {"type": "Feature", "properties": {"meta": {"radar_coverage": "ok"}}}
     answer = ask(api=FakeApi(nowcast=odd))
     assert answer == {"success": True, "say": NOW, "place": "Testheim"}
+
+
+def test_a_slow_radar_leaves_the_answer_as_it_was(monkeypatch):
+    """A radar that keeps the voice waiting is dropped, and the temperature still comes."""
+    monkeypatch.setattr(weather_module, "RADAR_WITHIN", 0.2)
+    answer = ask(api=FakeApi(nowcast=radar([DRY] * TWO_HOURS), nowcast_delay=5))
+    assert answer == {"success": True, "say": NOW, "place": "Testheim"}
+
+
+def test_the_radar_is_given_a_few_seconds():
+    assert 1 <= weather_module.RADAR_WITHIN <= 4

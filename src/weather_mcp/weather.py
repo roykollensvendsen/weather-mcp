@@ -6,6 +6,7 @@ time, never in UTC.
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import re
 import zoneinfo
@@ -147,6 +148,8 @@ SKY_CHANGES = 3
 FALLS = re.compile(r"rain|sleet|snow|showers")
 #: The hours a block covers beyond MET's first days.
 SIX_HOURS = 6
+#: Seconds the radar may take before weather_now answers without it.
+RADAR_WITHIN = 3.0
 
 
 @dataclass(frozen=True)
@@ -729,12 +732,16 @@ class Weather:
     async def _radar(self, where: Place, answer: Answer) -> str:
         """What MET's radar sees for the next two hours, or "" when it can't say."""
         try:
-            # RULE: the radar at a position is never written to the cache file
-            nowcast = await self._cache.get_json(NOWCAST, point(where), on_disk=not isinstance(where, Here))
+            # RULE: a slow radar leaves the answer as it was
+            async with asyncio.timeout(RADAR_WITHIN):
+                # RULE: the radar at a position is never written to the cache file
+                nowcast = await self._cache.get_json(
+                    NOWCAST, point(where), on_disk=not isinstance(where, Here)
+                )
             sky = _sky(answer.data["properties"]["timeseries"][0])
             return radar_sentence(nowcast.data, self._cache.now(), called(sky))
         # RULE: a radar that fails leaves the answer as it was
-        except (UpstreamError, httpx.HTTPError, KeyError, TypeError, ValueError):
+        except (UpstreamError, httpx.HTTPError, KeyError, TypeError, ValueError, TimeoutError):
             return ""
 
     async def _where(self, place: str | None) -> Place | str:

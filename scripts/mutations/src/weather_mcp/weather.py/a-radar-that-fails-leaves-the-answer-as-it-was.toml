@@ -1,5 +1,5 @@
 [[rule]]
 name = "a radar that fails leaves the answer as it was"
 file = "src/weather_mcp/weather.py"
-find = '^        except \(UpstreamError, httpx\.HTTPError, KeyError, TypeError, ValueError\):$'
+find = '^        except \(UpstreamError, httpx\.HTTPError, KeyError, TypeError, ValueError, TimeoutError\):$'
 replace = 'except ():'
