@@ -1,0 +1,5 @@
+[[rule]]
+name = "the forecast and the radar are asked at once"
+file = "src/weather_mcp/weather.py"
+find = '''^        answer, nowcast = await asyncio\.gather\(self\._fetch\(where\), self\._nowcast\(where\)\)$'''
+replace = '''answer, nowcast = await self._fetch(where), await self._nowcast(where)'''
