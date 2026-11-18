@@ -80,14 +80,15 @@ def test_the_radars_rain_is_called_what_the_sky_says_falls(symbol, word):
 
 @pytest.mark.parametrize("coverage", ["no coverage", "temporarily unavailable"])
 def test_a_radar_that_cannot_see_says_nothing(coverage):
-    assert ask(api=FakeApi(nowcast=radar([DRY] * TWO_HOURS, coverage=coverage)))["say"] == NOW
-
-
-def test_a_radar_that_cannot_see_says_nothing_even_with_rates_left_in():
     """MET leaves the rates out then; should one come anyway, the coverage still decides."""
-    blind = radar([DRY] * TWO_HOURS)
-    blind["properties"]["meta"]["radar_coverage"] = "temporarily unavailable"
+    blind = radar([WET] * TWO_HOURS)
+    blind["properties"]["meta"]["radar_coverage"] = coverage
     assert ask(api=FakeApi(nowcast=blind))["say"] == NOW
+
+
+@pytest.mark.parametrize("coverage", ["no coverage", "temporarily unavailable"])
+def test_a_blind_radar_as_met_sends_it_adds_nothing(coverage):
+    assert ask(api=FakeApi(nowcast=radar([DRY] * TWO_HOURS, coverage=coverage)))["say"] == NOW
 
 
 def test_a_radar_with_no_steps_ahead_says_nothing():
