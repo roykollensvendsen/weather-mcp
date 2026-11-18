@@ -6,6 +6,7 @@ The fake's clock is 13:00 in Oslo on Saturday 14 November 2026, and the sky is c
 import asyncio
 import datetime as dt
 import logging
+import time
 
 import httpx
 import pytest
@@ -133,7 +134,7 @@ def test_the_radar_at_a_position_is_never_written_to_the_cache_file(tmp_path):
     assert "61.00" not in (store.read_text() if store.exists() else "")
 
 
-def test_a_radar_that_fails_leaves_the_answer_as_it_was_on_an_odd_answer():
+def test_an_odd_radar_answer_leaves_the_answer_as_it_was():
     odd = {"type": "Feature", "properties": {"meta": {"radar_coverage": "ok"}}}
     answer = ask(api=FakeApi(nowcast=odd))
     assert answer == {"success": True, "say": NOW, "place": "Testheim"}
@@ -180,3 +181,12 @@ def test_rain_within_the_hour_also_says_how_soon():
 
 def test_rain_an_hour_off_or_more_gives_only_the_time():
     assert _say([DRY] * 12 + [WET] * 13) == f"{NOW} Rain from about 14:00."
+
+
+def test_the_forecast_and_the_radar_are_asked_at_once():
+    """Each takes 1.5 s; asked one after the other they would take 3."""
+    api = FakeApi(nowcast=radar([DRY] * TWO_HOURS), delay=1.5)
+    began = time.monotonic()
+    answer = ask(api=api)
+    assert answer["say"] == f"{NOW} Dry for the next two hours."
+    assert time.monotonic() - began < 2.5

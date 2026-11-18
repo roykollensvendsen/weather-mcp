@@ -605,11 +605,14 @@ class Weather:
         accuracy_m: float | None = None,
     ) -> dict[str, Any]:
         """The weather right now: at a named place, else at the phone's position, else at home."""
-        found = await self._look_up(place, lat, lon)
-        if isinstance(found, dict):
-            return found
-        where, answer = found
-        radar = await self._radar(where, answer)
+        where = await self._resolve(place, lat, lon)
+        if isinstance(where, str):
+            return {"success": False, "say": where}
+        # RULE: the forecast and the radar are asked at once
+        answer, nowcast = await asyncio.gather(self._fetch(where), self._nowcast(where))
+        if isinstance(answer, str):
+            return {"success": False, "say": answer}
+        radar = self._radar(nowcast, answer)
         say = _sentence(answer, _spoken(where)) + radar + _rough(where, accuracy_m)
         return {"success": True, "say": say, "place": where.name}
 
@@ -729,19 +732,27 @@ class Weather:
         except (UpstreamError, httpx.HTTPError):
             return DOWN
 
-    async def _radar(self, where: Place, answer: Answer) -> str:
-        """What MET's radar sees for the next two hours, or "" when it can't say."""
+    async def _nowcast(self, where: Place) -> Answer | None:
+        """MET's radar nowcast for the point, or None when it can't be had in time."""
         try:
             # RULE: a slow radar leaves the answer as it was
             async with asyncio.timeout(RADAR_WITHIN):
                 # RULE: the radar at a position is never written to the cache file
-                nowcast = await self._cache.get_json(
-                    NOWCAST, point(where), on_disk=not isinstance(where, Here)
-                )
-            sky = _sky(answer.data["properties"]["timeseries"][0])
-            return radar_sentence(nowcast.data, self._cache.now(), called(sky))
+                return await self._cache.get_json(NOWCAST, point(where), on_disk=not isinstance(where, Here))
         # RULE: a radar that fails leaves the answer as it was
-        except (UpstreamError, httpx.HTTPError, KeyError, TypeError, ValueError, TimeoutError):
+        except (UpstreamError, httpx.HTTPError, TimeoutError):
+            return None
+
+    def _radar(self, nowcast: Answer | None, answer: Answer) -> str:
+        """What MET's radar sees for the next two hours, or "" when it can't say."""
+        if nowcast is None:
+            return ""
+        now = self._cache.now()
+        sky = _sky(answer.data["properties"]["timeseries"][0])
+        try:
+            return radar_sentence(nowcast.data, now, called(sky))
+        # RULE: an odd radar answer leaves the answer as it was
+        except (KeyError, TypeError, ValueError):
             return ""
 
     async def _where(self, place: str | None) -> Place | str:
