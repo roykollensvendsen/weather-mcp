@@ -10,3 +10,5 @@ versions follow [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 - The walking skeleton: the thinnest path through the whole system, end to
   end, green in CI on the first commit.
+- The forecast for any day MET covers, said as a weekday, a date or "i morgen",
+  and `weather_week` for the coming days in a few short lines.
