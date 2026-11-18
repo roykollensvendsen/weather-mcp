@@ -15,10 +15,11 @@ NOWCAST = "https://api.met.no/weatherapi/nowcast/2.0/complete"
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 #: A rate below this, in millimetres an hour, is a trace the radar sees and nobody feels.
 TRACE = 0.1
-#: A reach of this many minutes or more is said as two hours, as MET names it. A nowcast
-#: a few minutes old reaches a little short of that, and "105 minutes" helps nobody.
-# RULE: a reach near two hours is said as two hours
+#: A reach of this many minutes or more is said in hours, as MET names it. A nowcast a few
+#: minutes old reaches a little short of two hours, and "105 minutes" helps nobody.
 TWO_HOURS = 100
+#: Up to this many minutes, the reach is "about" two hours; beyond it, two hours plain.
+NEARLY = 115
 #: The fewest minutes ahead worth a sentence: one radar step.
 STEP = 5
 #: How many steps in a row a change must last to be said; one alone is speckle.
@@ -64,8 +65,12 @@ def _ahead(data: dict[str, Any], now: dt.datetime, *, fresh: bool) -> list[tuple
 
 
 def _reach(minutes: int) -> str:
+    """The reach, such as "the next two hours" or "the next 95 minutes"."""
     # RULE: the radars reach is said as it is
-    return "two hours" if minutes >= TWO_HOURS else f"{minutes // STEP * STEP} minutes"
+    if minutes < TWO_HOURS:
+        return f"the next {minutes // STEP * STEP} minutes"
+    # RULE: a reach near two hours is said as about two hours
+    return "the next two hours" if minutes > NEARLY else "about the next two hours"
 
 
 def _changes(change: dt.datetime, now: dt.datetime, falls: str, *, wet: bool) -> str:
@@ -99,5 +104,5 @@ def radar_sentence(data: dict[str, Any], now: dt.datetime, falls: str, *, fresh:
     if change is None:
         # RULE: rain all through says so
         # RULE: no rain on the radar says dry
-        return f" {falls if wet[0] else 'Dry'} for the next {_reach(minutes)}."
+        return f" {falls if wet[0] else 'Dry'} for {_reach(minutes)}."
     return _changes(change, now, falls, wet=wet[0])

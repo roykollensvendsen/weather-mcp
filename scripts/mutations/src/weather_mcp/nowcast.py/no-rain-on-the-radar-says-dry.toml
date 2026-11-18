@@ -1,5 +1,5 @@
 [[rule]]
 name = "no rain on the radar says dry"
 file = "src/weather_mcp/nowcast.py"
-find = '''^        return f" \{falls if wet\[0\] else 'Dry'\} for the next'''
-replace = 'return f" {falls} for the next {_reach(minutes)}."'
+find = '''^        return f\" \{falls if wet\[0\] else 'Dry'\} for \{_reach'''
+replace = '''return f" {falls} for {_reach(minutes)}."'''
