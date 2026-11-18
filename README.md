@@ -3,7 +3,8 @@
 The weather in Norway by voice, from MET Norway's open data, as an MCP server and an optional claude-voice plugin.
 
 It gives a voice session four tools. `weather_now(place?, lat?, lon?, accuracy_m?)` says
-the weather right now. `weather_forecast(day?, place?, lat?, lon?, accuracy_m?)` says one
+the weather right now, and from MET's radar whether rain is coming in the next two
+hours. `weather_forecast(day?, place?, lat?, lon?, accuracy_m?)` says one
 day, up to about nine days ahead: the temperature range, rain, wind, and the sky in the
 morning, at midday and in the evening. `weather_week(until?, place?, lat?, lon?, accuracy_m?)`
 says the coming days, five from tomorrow or up to `until`, one short line a day, then the
