@@ -141,3 +141,57 @@ def test_the_hours_tool_says_when_to_use_it_and_when_not():
     assert hours.input_schema["required"] == ["from_time"]
     assert "15.00" in hours.input_schema["properties"]["from_time"]["description"]
     assert hours.annotations.read_only_hint
+
+
+def test_a_sky_that_leaves_and_comes_back_is_said_each_time():
+    """Clear, then three hours of rain, then clear again is not just "rain"."""
+
+    def shower(local):
+        return 5.0, "rain" if 15 <= local.hour < 18 else "clearsky_day", 0.0, 3.0
+
+    voice = Voice(FakeApi(body=met_like(shower)))
+    try:
+        result = voice.loop.run_until_complete(
+            voice.server.call_tool("weather_hours", {"from_time": "14", "to_time": "19"})
+        )
+    finally:
+        voice.close()
+    assert ", clear, then rain, then clear," in result.structured_content["say"]
+
+
+def test_rain_the_sky_already_names_is_not_said_again():
+    """Saying "light rain, a little rain" says it twice; the sky says it, so the amount stands alone."""
+
+    def light(local):
+        return 5.0, "lightrain", 0.3 if local.hour == 15 else 2.0, 3.0
+
+    voice = Voice(FakeApi(body=met_like(light)))
+    try:
+        one, two = (
+            voice.loop.run_until_complete(voice.server.call_tool("weather_hours", asked)).structured_content[
+                "say"
+            ]
+            for asked in ({"from_time": "15"}, {"from_time": "16"})
+        )
+    finally:
+        voice.close()
+    assert one == "Today at 15:00 in Testheim: 5 degrees, light rain, wind 3 metres a second."
+    assert two == "Today at 16:00 in Testheim: 5 degrees, light rain, 2 millimetres, wind 3 metres a second."
+    assert ", cloudy, 1 millimetre of rain," in _say(from_time="15")
+
+
+def test_many_sky_changes_are_said_as_what_it_mostly_was():
+    """Five skies in five hours are said as the first, what it mostly was, and the last."""
+    skies = {14: "cloudy", 15: "rain", 16: "cloudy", 17: "rain", 18: "clearsky_day"}
+
+    def changing(local):
+        return 5.0, skies.get(local.hour, "fog"), 0.0, 3.0
+
+    voice = Voice(FakeApi(body=met_like(changing)))
+    try:
+        result = voice.loop.run_until_complete(
+            voice.server.call_tool("weather_hours", {"from_time": "14", "to_time": "19"})
+        )
+    finally:
+        voice.close()
+    assert ", cloudy, then mostly rain, then clear," in result.structured_content["say"]

@@ -1,0 +1,5 @@
+[[rule]]
+name = "many sky changes are said as what it mostly was"
+file = "src/weather_mcp/weather.py"
+find = '^    if len\(runs\) > SKY_CHANGES:$'
+replace = 'if False:'

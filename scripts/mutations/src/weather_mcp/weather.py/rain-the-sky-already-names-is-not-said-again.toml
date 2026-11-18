@@ -1,0 +1,5 @@
+[[rule]]
+name = "rain the sky already names is not said again"
+file = "src/weather_mcp/weather.py"
+find = '^    if not FALLS\.search\(sky\):$'
+replace = 'if True:'
