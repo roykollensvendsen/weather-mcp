@@ -205,3 +205,16 @@ def test_a_missing_rain_rate_is_logged_once_for_each_answer_from_met(caplog):
     finally:
         voice.close()
     assert caplog.text.count("precipitation_rate") == 1
+
+
+def test_how_soon_is_rounded_to_the_nearest_five_minutes():
+    """At 13:02:30, rain at 13:25 is 22.5 minutes off: said as 25, as the time it gives."""
+    api = FakeApi(nowcast=radar([DRY] * 5 + [WET] * 20))
+    api.clock.advance(2.5)
+    assert ask(api=api)["say"] == f"{NOW} Rain from about 13:25, in 25 minutes."
+
+
+def test_how_soon_is_never_said_as_less_than_five_minutes():
+    api = FakeApi(nowcast=radar([DRY] + [WET] * 24))
+    api.clock.advance(4)
+    assert ask(api=api)["say"] == f"{NOW} Rain from about 13:05, in 5 minutes."

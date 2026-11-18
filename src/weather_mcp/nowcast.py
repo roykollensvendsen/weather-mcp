@@ -71,9 +71,11 @@ def _changes(change: dt.datetime, now: dt.datetime, falls: str, *, wet: bool) ->
     # RULE: rain falling now says when it stops
     if wet:
         return f" {falls} until about {at}."
-    soon = int((change - now).total_seconds() // 60)
+    soon = (change - now).total_seconds() / 60
+    # RULE: how soon is rounded to the nearest five minutes
+    rounded = max(int((soon + STEP / 2) // STEP) * STEP, STEP)
     # RULE: rain within the hour also says how soon
-    when = f", in {max(soon // STEP * STEP, STEP)} minutes" if soon < HOUR else ""
+    when = f", in {rounded} minutes" if soon < HOUR else ""
     # RULE: rain on the radar says when it starts
     return f" {falls} from about {at}{when}."
 

@@ -1,0 +1,5 @@
+[[rule]]
+name = "how soon is rounded to the nearest five minutes"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    rounded = max\(int\(\(soon \+ STEP / 2\) // STEP\) \* STEP, STEP\)$'''
+replace = '''rounded = max(int(soon // STEP) * STEP, STEP)'''
