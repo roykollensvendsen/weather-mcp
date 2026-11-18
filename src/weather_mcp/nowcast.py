@@ -21,7 +21,7 @@ TWO_HOURS = 110
 STEP = 5
 #: How many steps in a row a change must last to be said; one alone is speckle.
 SETTLED = 2
-#: Rain sooner than this many minutes away is also said as how soon.
+#: Rain sooner than this many minutes away is said by how soon, then the time.
 HOUR = 60
 
 log = logging.getLogger(__name__)
@@ -75,10 +75,11 @@ def _changes(change: dt.datetime, now: dt.datetime, falls: str, *, wet: bool) ->
     # RULE: how soon is rounded to the nearest five minutes
     # RULE: how soon is never said as less than five minutes
     rounded = max(int((soon + STEP / 2) // STEP) * STEP, STEP)
-    # RULE: rain within the hour also says how soon
-    when = f", in {rounded} minutes" if soon < HOUR else ""
+    # RULE: rain within the hour says how soon first
+    if soon < HOUR:
+        return f" {falls} in about {rounded} minutes, around {at}."
     # RULE: rain on the radar says when it starts
-    return f" {falls} from about {at}{when}."
+    return f" {falls} from about {at}."
 
 
 def radar_sentence(data: dict[str, Any], now: dt.datetime, falls: str, *, fresh: bool = True) -> str:
