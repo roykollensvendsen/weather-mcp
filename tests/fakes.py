@@ -22,6 +22,7 @@ import httpx
 START = dt.datetime(2026, 11, 14, 12, 0, tzinfo=dt.UTC)
 LAST_MODIFIED = "Sat, 14 Nov 2026 11:30:00 GMT"
 FORECAST_PATH = "/weatherapi/locationforecast/2.0/compact"
+NOWCAST_PATH = "/weatherapi/nowcast/2.0/complete"
 PLACES_PATH = "/stedsnavn/v1/sted"
 
 
@@ -121,6 +122,25 @@ def met_like(at, start: dt.datetime = START) -> dict[str, object]:
     return body
 
 
+def radar(rates: list[float], start: dt.datetime = START, coverage: str = "ok") -> dict[str, object]:
+    """A nowcast as MET's complete one is (docs read 2026-11-18), five minutes a step.
+
+    `rates` are precipitation rates in mm/h from `start`. As MET does, a step carries the rate
+    only where the radar sees well.
+    """
+    series = []
+    for n, rate in enumerate(rates):
+        details: dict[str, float] = {"air_temperature": 7.0}
+        if coverage == "ok":
+            details["precipitation_rate"] = rate
+        time = start + dt.timedelta(minutes=5 * n)
+        series.append(
+            {"time": time.strftime("%Y-%m-%dT%H:%M:%SZ"), "data": {"instant": {"details": details}}}
+        )
+    meta = {"updated_at": "2026-11-14T11:55:00Z", "units": {}, "radar_coverage": coverage}
+    return {"type": "Feature", "properties": {"meta": meta, "timeseries": series}}
+
+
 #: Kartverket's type codes, which its /sted filter takes (read 2026-11-15).
 KIND_CODES = {"By": "by", "Tettsted": "tettsted", "Tettbebyggelse": "tettbebyggelse", "Gard": "gard"}
 
@@ -191,6 +211,10 @@ class FakeApi:
     #: Send Expires with a "-0000" zone, which parses to a time with no zone.
     zoneless_expires: bool = False
     requests: list[httpx.Request] = field(default_factory=list)
+    #: MET's nowcast; with none, MET answers as it does outside the Nordic area.
+    nowcast: dict[str, object] | None = None
+    #: A status MET answers the nowcast alone with, as when the radar service is down.
+    nowcast_broken: int | None = None
 
     def transport(self) -> httpx.MockTransport:
         return httpx.MockTransport(self._handle_async)
@@ -208,10 +232,16 @@ class FakeApi:
         if request.url.path == PLACES_PATH:
             return self._places(request)
         if request.url.path == FORECAST_PATH:
-            return self._forecast(request)
+            return self._forecast(request, self.body)
+        if request.url.path == NOWCAST_PATH:
+            if self.nowcast_broken is not None:
+                return httpx.Response(self.nowcast_broken)
+            if self.nowcast is None:
+                return httpx.Response(422, text="nowcast is only available for the Nordic area")
+            return self._forecast(request, self.nowcast)
         return httpx.Response(404)
 
-    def _forecast(self, request: httpx.Request) -> httpx.Response:
+    def _forecast(self, request: httpx.Request, body: dict[str, object]) -> httpx.Response:
         agent = request.headers.get("user-agent", "")
         if not agent.startswith("weather-mcp/") or " " not in agent:
             return httpx.Response(403, text="Missing or generic User-Agent")
@@ -237,7 +267,7 @@ class FakeApi:
         headers = {"Expires": expires, "Last-Modified": LAST_MODIFIED}
         if request.headers.get("if-modified-since") == LAST_MODIFIED:
             return httpx.Response(304, headers=headers)
-        return httpx.Response(200, headers=headers, content=json.dumps(self.body).encode())
+        return httpx.Response(200, headers=headers, content=json.dumps(body).encode())
 
     def _places(self, request: httpx.Request) -> httpx.Response:
         name = request.url.params.get("sok", "")

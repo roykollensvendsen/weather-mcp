@@ -1,0 +1,5 @@
+[[rule]]
+name = "past radar steps are left out"
+file = "src/weather_mcp/nowcast.py"
+find = '^    return \[\(time, rate\) for time, rate in rated if time >= start\]$'
+replace = 'return rated'

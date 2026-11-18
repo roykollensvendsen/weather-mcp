@@ -1,0 +1,5 @@
+[[rule]]
+name = "a trace below a tenth of a millimetre is dry"
+file = "src/weather_mcp/nowcast.py"
+find = '^    wet = \[rate >= TRACE for _, rate in ahead\]$'
+replace = 'wet = [rate > 0 for _, rate in ahead]'

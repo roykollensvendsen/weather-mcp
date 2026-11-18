@@ -1,0 +1,5 @@
+[[rule]]
+name = "rain all through says so"
+file = "src/weather_mcp/nowcast.py"
+find = '''^        return f" \{falls if wet\[0\] else 'Dry'\} for the next'''
+replace = 'return f" Dry for the next {_reach(minutes)}."'

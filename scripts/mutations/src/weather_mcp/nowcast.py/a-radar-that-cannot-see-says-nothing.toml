@@ -1,0 +1,5 @@
+[[rule]]
+name = "a radar that cannot see says nothing"
+file = "src/weather_mcp/nowcast.py"
+find = '^    if data\["properties"\]\["meta"\]\.get\("radar_coverage"\) != "ok":$'
+replace = 'if False:'
