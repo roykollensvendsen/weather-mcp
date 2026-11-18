@@ -180,6 +180,19 @@ def test_rain_the_sky_already_names_is_not_said_again():
     assert ", cloudy, 1 millimetre of rain," in _say(from_time="15")
 
 
+def test_a_sky_of_rain_is_never_said_dry():
+    """MET can give a rain sky with no rain measured; "light rain, dry" contradicts itself."""
+    voice = Voice(FakeApi(body=met_like(lambda _local: (5.0, "lightrain", 0.0, 3.0))))
+    try:
+        result = voice.loop.run_until_complete(voice.server.call_tool("weather_hours", {"from_time": "15"}))
+    finally:
+        voice.close()
+    assert (
+        result.structured_content["say"]
+        == "Today at 15:00 in Testheim: 5 degrees, light rain, wind 3 metres a second."
+    )
+
+
 def test_many_sky_changes_are_said_as_what_it_mostly_was():
     """Five skies in five hours are said as the first, what it mostly was, and the last."""
     skies = {14: "cloudy", 15: "rain", 16: "cloudy", 17: "rain", 18: "clearsky_day"}
@@ -195,3 +208,20 @@ def test_many_sky_changes_are_said_as_what_it_mostly_was():
     finally:
         voice.close()
     assert ", cloudy, then mostly rain, then clear," in result.structured_content["say"]
+
+
+def test_what_the_sky_mostly_was_is_weighed_by_hours():
+    """One hour of rain on each side of five cloudy hours is mostly cloudy, not mostly rain."""
+    skies = {14: "clearsky_day", 15: "rain", 21: "rain", 22: "fair_day"}
+
+    def mostly_cloudy(local):
+        return 5.0, skies.get(local.hour, "cloudy"), 0.0, 3.0
+
+    voice = Voice(FakeApi(body=met_like(mostly_cloudy)))
+    try:
+        result = voice.loop.run_until_complete(
+            voice.server.call_tool("weather_hours", {"from_time": "14", "to_time": "23"})
+        )
+    finally:
+        voice.close()
+    assert ", clear, then mostly cloudy, then fair," in result.structured_content["say"]

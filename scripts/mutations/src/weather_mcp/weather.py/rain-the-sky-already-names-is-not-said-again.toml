@@ -1,5 +1,5 @@
 [[rule]]
 name = "rain the sky already names is not said again"
 file = "src/weather_mcp/weather.py"
-find = '^    if not FALLS\.search\(sky\):$'
-replace = 'if True:'
+find = '^        return \"\" if whole == 0 else f\"\{whole\} \{.millimetre. if whole == 1 else .millimetres.\}\"$'
+replace = 'return _amount(hours)'

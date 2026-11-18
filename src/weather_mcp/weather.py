@@ -495,9 +495,17 @@ def _sky_over(hours: list[Hour]) -> str:
     runs = [sky for n, sky in enumerate(skies) if n == 0 or sky != skies[n - 1]]
     # RULE: many sky changes are said as what it mostly was
     if len(runs) > SKY_CHANGES:
-        middle = runs[1:-1]
-        runs = [runs[0], f"mostly {max(middle, key=middle.count)}", runs[-1]]
+        runs = [runs[0], f"mostly {_mostly(skies, runs[0], runs[-1])}", runs[-1]]
     return ", then ".join(runs)
+
+
+def _mostly(skies: list[str], first: str, last: str) -> str:
+    """The sky of most hours between the first sky's hours and the last one's."""
+    start = next(n for n, sky in enumerate(skies) if sky != first)
+    end = max(n for n, sky in enumerate(skies) if sky != last) + 1
+    # RULE: what the sky mostly was is weighed by hours
+    middle = skies[start:end]
+    return max(middle, key=middle.count)
 
 
 def _hours_sentence(hours: list[Hour]) -> str:
@@ -514,13 +522,13 @@ def _hours_range(hours: list[Hour]) -> str:
 
 def _hours_rain(hours: list[Hour], sky: str) -> str:
     """The rain, or dry; only its amount when the sky already says what falls."""
-    if sum(h.rain for h in hours) == 0:
-        return "dry"
+    total = sum(h.rain for h in hours)
     # RULE: rain the sky already names is not said again
-    if not FALLS.search(sky):
-        return _amount(hours)
-    whole = round(sum(h.rain for h in hours))
-    return "" if whole == 0 else f"{whole} {'millimetre' if whole == 1 else 'millimetres'}"
+    # RULE: a sky of rain is never said dry
+    if FALLS.search(sky):
+        whole = round(total)
+        return "" if whole == 0 else f"{whole} {'millimetre' if whole == 1 else 'millimetres'}"
+    return "dry" if total == 0 else _amount(hours)
 
 
 def _hours_wind(hours: list[Hour]) -> str:
