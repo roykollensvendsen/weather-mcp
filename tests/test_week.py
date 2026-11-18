@@ -113,3 +113,10 @@ def test_the_week_tool_says_when_to_use_it_and_when_not():
     assert {"until", "place", "lat", "lon", "accuracy_m"} <= set(week.input_schema["properties"])
     assert "søndag" in week.input_schema["properties"]["until"]["description"]
     assert week.annotations.read_only_hint
+
+
+def test_a_week_of_even_rain_names_no_wettest_day():
+    """With much the same rain every day, no day is the wettest or the driest."""
+    say = _week(lambda local: (2.0, "rain", 0.5 if 12 <= local.hour < 18 else 0.0, 3.0))["say"]
+    assert say.endswith(" Much the same rain every day, up to 3 millimetres.")
+    assert "Wettest" not in say
