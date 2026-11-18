@@ -1,0 +1,5 @@
+[[rule]]
+name = "trailing punctuation is left out"
+file = "src/weather_mcp/days.py"
+find = '^    words = " "\.join\(said\.lower\(\)\.rstrip\(TRAILING\)\.split\(\)\)$'
+replace = 'words = " ".join(said.lower().split())'
