@@ -1,0 +1,5 @@
+[[rule]]
+name = "rain within the hour says how soon first"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    if soon < HOUR:$'''
+replace = '''if False:'''

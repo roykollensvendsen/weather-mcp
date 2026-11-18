@@ -1,5 +1,0 @@
-[[rule]]
-name = "rain within the hour also says how soon"
-file = "src/weather_mcp/nowcast.py"
-find = '''^    when = f", in \{rounded\} minutes" if soon < HOUR else ""$'''
-replace = '''when = ""'''

@@ -36,7 +36,8 @@ def test_no_rain_on_the_radar_says_dry():
 
 
 def test_rain_on_the_radar_says_when_it_starts():
-    assert _say([DRY] * 5 + [WET] * 20) == f"{NOW} Rain from about 13:25, in 25 minutes."
+    """An hour or more off, the time alone is said."""
+    assert _say([DRY] * 12 + [WET] * 13) == f"{NOW} Rain from about 14:00."
 
 
 def test_rain_falling_now_says_when_it_stops():
@@ -52,7 +53,7 @@ def test_a_trace_below_a_tenth_of_a_millimetre_is_dry():
 
 
 def test_a_tenth_of_a_millimetre_is_rain():
-    assert _say([DRY] * 5 + [0.1] * 20) == f"{NOW} Rain from about 13:25, in 25 minutes."
+    assert _say([DRY] * 5 + [0.1] * 20) == f"{NOW} Rain in about 25 minutes, around 13:25."
 
 
 def test_the_radars_reach_is_said_as_it_is():
@@ -78,7 +79,7 @@ def test_the_step_under_way_counts_as_now():
 )
 def test_the_radars_rain_is_called_what_the_sky_says_falls(symbol, word):
     api = FakeApi(body=forecast(symbol=symbol), nowcast=radar([DRY] * 5 + [WET] * 20))
-    assert ask(api=api)["say"].endswith(f" {word} from about 13:25, in 25 minutes.")
+    assert ask(api=api)["say"].endswith(f" {word} in about 25 minutes, around 13:25.")
 
 
 @pytest.mark.parametrize("coverage", ["no coverage", "temporarily unavailable"])
@@ -175,12 +176,9 @@ def test_a_seeing_radar_with_no_rain_rate_is_logged(caplog):
     assert "61.00" not in caplog.text
 
 
-def test_rain_within_the_hour_also_says_how_soon():
-    assert _say([DRY] * 9 + [WET] * 16) == f"{NOW} Rain from about 13:45, in 45 minutes."
-
-
-def test_rain_an_hour_off_or_more_gives_only_the_time():
-    assert _say([DRY] * 12 + [WET] * 13) == f"{NOW} Rain from about 14:00."
+def test_rain_within_the_hour_says_how_soon_first():
+    """What the listener acts on comes first: the wait, then the time it gives."""
+    assert _say([DRY] * 9 + [WET] * 16) == f"{NOW} Rain in about 45 minutes, around 13:45."
 
 
 def test_the_forecast_and_the_radar_are_asked_at_once():
@@ -211,10 +209,10 @@ def test_how_soon_is_rounded_to_the_nearest_five_minutes():
     """At 13:02:30, rain at 13:25 is 22.5 minutes off: said as 25, as the time it gives."""
     api = FakeApi(nowcast=radar([DRY] * 5 + [WET] * 20))
     api.clock.advance(2.5)
-    assert ask(api=api)["say"] == f"{NOW} Rain from about 13:25, in 25 minutes."
+    assert ask(api=api)["say"] == f"{NOW} Rain in about 25 minutes, around 13:25."
 
 
 def test_how_soon_is_never_said_as_less_than_five_minutes():
     api = FakeApi(nowcast=radar([DRY] + [WET] * 24))
     api.clock.advance(4)
-    assert ask(api=api)["say"] == f"{NOW} Rain from about 13:05, in 5 minutes."
+    assert ask(api=api)["say"] == f"{NOW} Rain in about 5 minutes, around 13:05."
