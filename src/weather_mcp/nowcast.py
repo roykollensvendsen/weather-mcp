@@ -7,6 +7,7 @@ Nordic area only, and it gives a rain rate only where the radar sees well.
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import zoneinfo
 from typing import Any
 
@@ -20,6 +21,8 @@ TWO_HOURS = 110
 STEP = 5
 #: How many steps in a row a change must last to be said; one alone is speckle.
 SETTLED = 2
+
+log = logging.getLogger(__name__)
 
 
 def called(sky: str) -> str:
@@ -41,6 +44,9 @@ def _ahead(data: dict[str, Any], now: dt.datetime) -> list[tuple[dt.datetime, fl
         for entry in data["properties"]["timeseries"]
     ]
     rated = [(time, float(rate)) for time, rate in steps if rate is not None]
+    # RULE: a seeing radar with no rain rate is logged
+    if steps and not rated:
+        log.warning("MET's nowcast sees but gives no precipitation_rate")
     # RULE: the step under way counts as now
     start = max((time for time, _ in rated if time <= now), default=now)
     # RULE: past radar steps are left out
