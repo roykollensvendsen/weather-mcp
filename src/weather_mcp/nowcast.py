@@ -17,6 +17,7 @@ OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 TRACE = 0.1
 #: A reach of this many minutes or more is said in hours, as MET names it. A nowcast a few
 #: minutes old reaches a little short of two hours, and "105 minutes" helps nobody.
+# RULE: a reach from a hundred minutes is said in hours
 TWO_HOURS = 100
 #: Up to this many minutes, the reach is "about" two hours; beyond it, two hours plain.
 NEARLY = 115

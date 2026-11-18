@@ -61,6 +61,10 @@ def test_the_radars_reach_is_said_as_it_is():
     assert _say([DRY] * 13) == f"{NOW} Dry for the next 60 minutes."
 
 
+def test_a_reach_from_a_hundred_minutes_is_said_in_hours():
+    assert _say([DRY] * 21) == f"{NOW} Dry for about the next two hours."
+
+
 def test_a_reach_near_two_hours_is_said_as_about_two_hours():
     """A nowcast a few minutes old reaches a little short of two hours; "105 minutes" is no help."""
     assert _say([DRY] * 21) == f"{NOW} Dry for about the next two hours."
