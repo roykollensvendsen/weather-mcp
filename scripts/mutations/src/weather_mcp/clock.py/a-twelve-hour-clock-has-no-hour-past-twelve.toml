@@ -1,0 +1,5 @@
+[[rule]]
+name = "a twelve hour clock has no hour past twelve"
+file = "src/weather_mcp/clock.py"
+find = '^        if not 1 <= hour <= HALF_DAY:$'
+replace = 'if False:'
