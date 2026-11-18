@@ -215,6 +215,8 @@ class FakeApi:
     nowcast: dict[str, object] | None = None
     #: A status MET answers the nowcast alone with, as when the radar service is down.
     nowcast_broken: int | None = None
+    #: Seconds the nowcast alone takes, as when the radar service is slow.
+    nowcast_delay: float = 0
 
     def transport(self) -> httpx.MockTransport:
         return httpx.MockTransport(self._handle_async)
@@ -222,6 +224,8 @@ class FakeApi:
     async def _handle_async(self, request: httpx.Request) -> httpx.Response:
         if self.delay:
             await asyncio.sleep(self.delay)
+        if self.nowcast_delay and request.url.path == NOWCAST_PATH:
+            await asyncio.sleep(self.nowcast_delay)
         return self.handle(request)
 
     def forecast_requests(self) -> list[httpx.Request]:

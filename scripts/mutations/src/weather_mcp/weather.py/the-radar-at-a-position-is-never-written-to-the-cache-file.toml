@@ -1,5 +1,5 @@
 [[rule]]
 name = "the radar at a position is never written to the cache file"
 file = "src/weather_mcp/weather.py"
-find = '^            nowcast = await self\._cache\.get_json\(NOWCAST, point\(where\), on_disk=not isinstance\(where, Here\)\)$'
-replace = 'nowcast = await self._cache.get_json(NOWCAST, point(where), on_disk=True)'
+find = '^                    NOWCAST, point\(where\), on_disk=not isinstance\(where, Here\)$'
+replace = 'NOWCAST, point(where), on_disk=True'
