@@ -1,0 +1,5 @@
+[[rule]]
+name = "a radar with no steps ahead says nothing"
+file = "src/weather_mcp/nowcast.py"
+find = '^    if minutes < STEP:$'
+replace = 'if False:'

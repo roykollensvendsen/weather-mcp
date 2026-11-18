@@ -18,6 +18,7 @@ from weather_mcp.cache import RefusedError, SlowedDownError, UpstreamError
 from weather_mcp.clock import at_hour, which_hour
 from weather_mcp.config import Place, config_path
 from weather_mcp.days import label, which_day
+from weather_mcp.nowcast import NOWCAST, called, radar_sentence
 
 if TYPE_CHECKING:
     from weather_mcp.cache import Answer, CachedClient
@@ -605,7 +606,8 @@ class Weather:
         if isinstance(found, dict):
             return found
         where, answer = found
-        say = _sentence(answer, _spoken(where)) + _rough(where, accuracy_m)
+        radar = await self._radar(where, answer)
+        say = _sentence(answer, _spoken(where)) + radar + _rough(where, accuracy_m)
         return {"success": True, "say": say, "place": where.name}
 
     async def forecast(
@@ -723,6 +725,17 @@ class Weather:
             return f"MET refused the request. Check the contact in {config_path()}."
         except (UpstreamError, httpx.HTTPError):
             return DOWN
+
+    async def _radar(self, where: Place, answer: Answer) -> str:
+        """What MET's radar sees for the next two hours, or "" when it can't say."""
+        try:
+            # RULE: the radar at a position is never written to the cache file
+            nowcast = await self._cache.get_json(NOWCAST, point(where), on_disk=not isinstance(where, Here))
+            sky = _sky(answer.data["properties"]["timeseries"][0])
+            return radar_sentence(nowcast.data, self._cache.now(), called(sky))
+        # RULE: a radar that fails leaves the answer as it was
+        except (UpstreamError, httpx.HTTPError, KeyError, TypeError, ValueError):
+            return ""
 
     async def _where(self, place: str | None) -> Place | str:
         """The place to ask about, or the sentence saying why there is none."""

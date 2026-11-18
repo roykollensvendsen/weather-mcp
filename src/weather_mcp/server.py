@@ -135,7 +135,8 @@ def build_server(
 
     @server.tool(
         annotations=LOOKS,
-        description="The weather right now. 'place' is a place in Norway as the owner said it,"
+        description="The weather right now, and from MET's radar whether rain is coming in the next"
+        " two hours. 'place' is a place in Norway as the owner said it,"
         " such as 'Bergen' or 'Moen i Agder'. Send the phone's position as lat, lon and accuracy_m"
         " when you have it; a named place comes first, and with neither it is home."
         " Data from MET Norway and Kartverket.",

@@ -1,0 +1,5 @@
+[[rule]]
+name = "rain falling now says when it stops"
+file = "src/weather_mcp/nowcast.py"
+find = '^    return f" \{falls\} until about \{at\}\." if wet\[0\]'
+replace = 'return f" {falls} from about {at}."'

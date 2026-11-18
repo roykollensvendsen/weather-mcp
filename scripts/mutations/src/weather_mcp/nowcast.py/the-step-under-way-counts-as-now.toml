@@ -1,0 +1,5 @@
+[[rule]]
+name = "the step under way counts as now"
+file = "src/weather_mcp/nowcast.py"
+find = '^    start = max\(\(time for time, _ in rated if time <= now\), default=now\)$'
+replace = 'start = now'

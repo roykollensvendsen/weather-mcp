@@ -1,0 +1,5 @@
+[[rule]]
+name = "the radars rain is called what the sky says falls"
+file = "src/weather_mcp/nowcast.py"
+find = '^    return next\(\(word\.title\(\) for word in \("snow", "sleet"\) if word in sky\), "Rain"\)$'
+replace = 'return "Rain"'
