@@ -1,5 +1,5 @@
 [[rule]]
 name = "a sky that changes is said as it goes"
 file = "src/weather_mcp/weather.py"
-find = '^    if skies\[0\] != skies\[-1\]:$'
-replace = 'if False:'
+find = '^    runs = \[sky for n, sky in enumerate\(skies\) if n == 0 or sky != skies\[n - 1\]\]$'
+replace = 'runs = skies[:1]'

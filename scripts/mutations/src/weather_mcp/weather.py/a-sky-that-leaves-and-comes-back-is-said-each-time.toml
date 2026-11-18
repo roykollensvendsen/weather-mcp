@@ -1,0 +1,5 @@
+[[rule]]
+name = "a sky that leaves and comes back is said each time"
+file = "src/weather_mcp/weather.py"
+find = '^    runs = \[sky for n, sky in enumerate\(skies\) if n == 0 or sky != skies\[n - 1\]\]$'
+replace = 'runs = list(dict.fromkeys(skies))'

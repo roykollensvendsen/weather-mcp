@@ -140,6 +140,10 @@ SOONER = "For today alone, ask for today's forecast."
 NO_WEEK = "MET has no forecast for the coming days yet."
 WHICH_TIME = "Which time? Say an hour such as 15 or 15:00."
 NO_TIME = "MET has no forecast for that time yet."
+#: The most sky changes said in full; beyond them the middle is said as what it mostly was.
+SKY_CHANGES = 3
+#: Sky words that already say what falls.
+FALLS = re.compile(r"rain|sleet|snow|showers")
 #: The hours a block covers beyond MET's first days.
 SIX_HOURS = 6
 
@@ -484,19 +488,22 @@ def _reach(series: list[dict[str, Any]], today: dt.date) -> str:
 
 
 def _sky_over(hours: list[Hour]) -> str:
-    """The sky through the hours: one sky, or the first and the last when it changes."""
+    """The sky through the hours as it goes: "cloudy, then clear", "clear, then rain, then clear"."""
     skies = [said for h in hours if (said := sky_words(h.symbol))]
-    if not skies:
-        return ""
     # RULE: a sky that changes is said as it goes
-    if skies[0] != skies[-1]:
-        return f"{skies[0]}, then {skies[-1]}"
-    return max(skies, key=skies.count)
+    # RULE: a sky that leaves and comes back is said each time
+    runs = [sky for n, sky in enumerate(skies) if n == 0 or sky != skies[n - 1]]
+    # RULE: many sky changes are said as what it mostly was
+    if len(runs) > SKY_CHANGES:
+        middle = runs[1:-1]
+        runs = [runs[0], f"mostly {max(middle, key=middle.count)}", runs[-1]]
+    return ", then ".join(runs)
 
 
 def _hours_sentence(hours: list[Hour]) -> str:
     """The temperature, sky, rain and wind through the hours, as one short sentence."""
-    said = [_hours_range(hours), _sky_over(hours), _hours_rain(hours), _hours_wind(hours)]
+    sky = _sky_over(hours)
+    said = [_hours_range(hours), sky, _hours_rain(hours, sky), _hours_wind(hours)]
     return ", ".join(words for words in said if words) + "."
 
 
@@ -505,8 +512,15 @@ def _hours_range(hours: list[Hour]) -> str:
     return _range(min(temperatures), max(temperatures), coarse=any(h.coarse for h in hours))
 
 
-def _hours_rain(hours: list[Hour]) -> str:
-    return "dry" if sum(h.rain for h in hours) == 0 else _amount(hours)
+def _hours_rain(hours: list[Hour], sky: str) -> str:
+    """The rain, or dry; only its amount when the sky already says what falls."""
+    if sum(h.rain for h in hours) == 0:
+        return "dry"
+    # RULE: rain the sky already names is not said again
+    if not FALLS.search(sky):
+        return _amount(hours)
+    whole = round(sum(h.rain for h in hours))
+    return "" if whole == 0 else f"{whole} {'millimetre' if whole == 1 else 'millimetres'}"
 
 
 def _hours_wind(hours: list[Hour]) -> str:
