@@ -96,3 +96,27 @@ def test_a_day_is_said_by_its_name_and_by_its_date_once_a_week_away(day, said):
 def test_trailing_punctuation_is_left_out(said):
     """A voice's text can end in a question mark or a full stop; the day is still the day."""
     assert which_day(said, TODAY) == NOV[20]
+
+
+@pytest.mark.parametrize(
+    "said",
+    [
+        "20. november",
+        "20 november",
+        "den 20. november",
+        "20 November",
+        "the 20th of November",
+        "20th November",
+        "November 20",
+        "november 20th",
+        "20 nov",
+    ],
+)
+def test_a_date_with_its_month_named_means_that_date(said):
+    """Speech to text gives "20. november" as often as "20.11"; both name the same day."""
+    assert which_day(said, TODAY) == NOV[20]
+
+
+def test_a_named_month_long_past_means_next_year():
+    assert which_day("1. januar", TODAY) == dt.date(2027, 1, 1)
+    assert which_day("31. februar", TODAY) is None
