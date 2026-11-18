@@ -82,7 +82,8 @@ def radar_sentence(data: dict[str, Any], now: dt.datetime, falls: str) -> str:
     # RULE: a trace below a tenth of a millimetre is dry
     wet = [rate >= TRACE for _, rate in ahead]
     # RULE: a single step of speckle is not a change
-    change = next((ahead[n][0] for n in range(len(wet)) if wet[0] not in wet[n : n + SETTLED]), None)
+    last = len(wet) - SETTLED + 1
+    change = next((ahead[n][0] for n in range(last) if wet[0] not in wet[n : n + SETTLED]), None)
     if change is None:
         # RULE: rain all through says so
         # RULE: no rain on the radar says dry
