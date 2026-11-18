@@ -1,5 +1,5 @@
 [[rule]]
 name = "the radars reach is said as it is"
 file = "src/weather_mcp/nowcast.py"
-find = '^    return "two hours" if minutes >= TWO_HOURS else'
-replace = 'return "two hours"'
+find = '''^    if minutes < TWO_HOURS:$'''
+replace = '''if False:'''

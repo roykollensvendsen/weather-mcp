@@ -1,0 +1,5 @@
+[[rule]]
+name = "a reach near two hours is said as about two hours"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    return "the next two hours" if minutes > NEARLY else "about the next two hours"$'''
+replace = '''return "the next two hours"'''

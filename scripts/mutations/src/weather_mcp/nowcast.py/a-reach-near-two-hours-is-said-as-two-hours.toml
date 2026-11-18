@@ -1,5 +1,0 @@
-[[rule]]
-name = "a reach near two hours is said as two hours"
-file = "src/weather_mcp/nowcast.py"
-find = '''^TWO_HOURS = 100$'''
-replace = '''TWO_HOURS = 120'''
