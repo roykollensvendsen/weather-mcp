@@ -1,0 +1,5 @@
+[[rule]]
+name = "a date with its month named means that date"
+file = "src/weather_mcp/days.py"
+find = '^    parts = NAMED_MONTH\.match\(words\) or MONTH_FIRST\.match\(words\)$'
+replace = 'parts = None'

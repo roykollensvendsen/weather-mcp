@@ -49,6 +49,33 @@ NEXT = ("next ", "neste ")
 DATE = re.compile(r"^(\d{1,2})\.(\d{1,2})\.?(\d{4})?$")
 #: Marks a voice's text may end in, which never change the day: "fredag?", "Friday.".
 TRAILING = "?!.,; "
+#: The months by their first three letters, which are the same in Norwegian and English but
+#: for May, October and December: "mai", "okt", "des".
+MONTHS = {
+    name: number
+    for number, names in enumerate(
+        (
+            ("jan",),
+            ("feb",),
+            ("mar",),
+            ("apr",),
+            ("mai", "may"),
+            ("jun",),
+            ("jul",),
+            ("aug",),
+            ("sep",),
+            ("okt", "oct"),
+            ("nov",),
+            ("des", "dec"),
+        ),
+        start=1,
+    )
+    for name in names
+}
+#: A date with its month named, day first: "20. november", "den 20. november", "the 20th of November".
+NAMED_MONTH = re.compile(r"^(?:den |the )?(?P<day>\d{1,2})(?:\.|st|nd|rd|th)? (?:of )?(?P<month>[a-zæøå]+)$")
+#: A date with its month named first, as English says it: "November 20", "november 20th".
+MONTH_FIRST = re.compile(r"^(?P<month>[a-zæøå]+) (?P<day>\d{1,2})(?:st|nd|rd|th)?$")
 #: How many days back a date without a year may lie and still be this year's.
 RECENT = 30
 #: Days in a week: from this far ahead, a weekday's name alone could mean two days.
@@ -87,18 +114,29 @@ def _date(words: str, today: dt.date) -> dt.date | None:
         return dt.date.fromisoformat(words)
     except ValueError:
         pass
-    parts = DATE.match(words)
+    parts = _day_month_year(words)
     if parts is None:
         return None
-    day, month, year = int(parts[1]), int(parts[2]), parts[3]
+    day, month, year = parts
     try:
-        when = dt.date(int(year) if year else today.year, month, day)
+        when = dt.date(year or today.year, month, day)
         if year is None and when < today - dt.timedelta(days=RECENT):
             # RULE: a date long past this year means next year
             when = when.replace(year=today.year + 1)
     except ValueError:  # no such day, such as 31.02, or 29.02 in a year without one
         return None
     return when
+
+
+def _day_month_year(words: str) -> tuple[int, int, int | None] | None:
+    """The day, month and year, if given, of a date as 20.11, 20. november or November 20th."""
+    if parts := DATE.match(words):
+        return int(parts[1]), int(parts[2]), int(parts[3]) if parts[3] else None
+    # RULE: a date with its month named means that date
+    parts = NAMED_MONTH.match(words) or MONTH_FIRST.match(words)
+    if parts is None or parts["month"][:3] not in MONTHS:
+        return None
+    return int(parts["day"]), MONTHS[parts["month"][:3]], None
 
 
 def label(day: dt.date, today: dt.date) -> str:

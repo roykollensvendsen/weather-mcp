@@ -26,7 +26,8 @@ LOOKS = ToolAnnotations(read_only_hint=True)
 #: How a day may be given. The plugin works the date out itself, from today in Oslo.
 DAY = (
     "The day asked about, as the owner said it, in Norwegian or English: 'today', 'i morgen',"
-    " a weekday such as 'fredag' or 'on Friday', 'neste fredag', or a date such as '20.11'."
+    " a weekday such as 'fredag' or 'on Friday', 'neste fredag', or a date such as '20.11' or"
+    " '20. november'."
     " Tomorrow if not said."
 )
 #: How the last day of the coming days may be given.
