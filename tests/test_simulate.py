@@ -33,6 +33,8 @@ def no_network(monkeypatch):
         ("weather_forecast", {"day": "today"}),
         ("weather_forecast", {"day": "fredag"}),
         ("weather_week", {}),
+        ("weather_hours", {"from_time": "12", "day": "tomorrow"}),
+        ("weather_hours", {"from_time": "8", "to_time": "12", "day": "i morgen"}),
     ],
 )
 def test_every_simulated_answer_says_simulated_first(tool, arguments):

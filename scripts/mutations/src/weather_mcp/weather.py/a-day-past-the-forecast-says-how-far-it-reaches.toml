@@ -1,5 +1,5 @@
 [[rule]]
 name = "a day past the forecast says how far it reaches"
 file = "src/weather_mcp/weather.py"
-find = '^    return f"MET.s forecast reaches to '
+find = '^    return f"MET.s forecast reaches to \{label\(last, now\.date\(\)\)\}\."$'
 replace = 'return ""'

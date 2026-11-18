@@ -1,0 +1,5 @@
+[[rule]]
+name = "an hour counts when its stretch overlaps the time asked about"
+file = "src/weather_mcp/weather.py"
+find = '^        if length and at < end and at \+ dt\.timedelta\(hours=length\) > start:$'
+replace = 'if length and start <= at < end:'
