@@ -73,6 +73,7 @@ def _changes(change: dt.datetime, now: dt.datetime, falls: str, *, wet: bool) ->
         return f" {falls} until about {at}."
     soon = (change - now).total_seconds() / 60
     # RULE: how soon is rounded to the nearest five minutes
+    # RULE: how soon is never said as less than five minutes
     rounded = max(int((soon + STEP / 2) // STEP) * STEP, STEP)
     # RULE: rain within the hour also says how soon
     when = f", in {rounded} minutes" if soon < HOUR else ""

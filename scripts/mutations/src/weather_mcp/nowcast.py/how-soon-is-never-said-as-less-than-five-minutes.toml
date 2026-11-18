@@ -1,0 +1,5 @@
+[[rule]]
+name = "how soon is never said as less than five minutes"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    rounded = max\(int\(\(soon \+ STEP / 2\) // STEP\) \* STEP, STEP\)$'''
+replace = '''rounded = int((soon + STEP / 2) // STEP) * STEP'''
