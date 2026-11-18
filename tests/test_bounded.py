@@ -103,3 +103,16 @@ def _end_if_still_the_sleep(pid: int) -> None:
 def test_a_child_that_finishes_gives_what_it_wrote() -> None:
     done = run_bounded([sys.executable, "-c", "print('hi')"], capture_output=True, text=True)
     assert (done.returncode, done.stdout) == (0, "hi\n")
+
+
+def test_a_group_gone_as_the_bound_runs_out_still_fails_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The group can end between the bound running out and the kill; that is still a clean failure."""
+    real_killpg = os.killpg
+
+    def gone_first(pid: int, sig: int) -> None:
+        real_killpg(pid, sig)
+        raise ProcessLookupError
+
+    monkeypatch.setattr("bounded.os.killpg", gone_first)
+    with pytest.raises(pytest.fail.Exception, match="did not finish within"):
+        run_bounded(["sleep", "30"], within=0.2)

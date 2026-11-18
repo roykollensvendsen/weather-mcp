@@ -5,6 +5,7 @@ its own bound instead, so a child that never answers fails that one test, and a 
 hangs counts as killed the way one that crashes does.
 """
 
+import contextlib
 import os
 import queue
 import signal
@@ -33,7 +34,8 @@ def run_bounded(cmd, within=WITHIN, *, check=False, input=None, capture_output=F
         try:
             out, err = child.communicate(input, timeout=within)
         except subprocess.TimeoutExpired:
-            os.killpg(child.pid, signal.SIGKILL)
+            with contextlib.suppress(ProcessLookupError):  # the group may end just as time runs out
+                os.killpg(child.pid, signal.SIGKILL)
             out, err = child.communicate()
             pytest.fail(f"{cmd!r} did not finish within {within} s; it wrote:\n{out}\n{err}")
     done = subprocess.CompletedProcess(cmd, child.returncode, out, err)
