@@ -1,0 +1,5 @@
+[[rule]]
+name = "a week of even rain names no wettest day"
+file = "src/weather_mcp/weather.py"
+find = '^    if wettest\.rain - driest\.rain < DRY:$'
+replace = 'if False:'

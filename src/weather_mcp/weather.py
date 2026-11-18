@@ -372,6 +372,9 @@ def _wettest(days: list[Day], today: dt.date) -> str:
         return "Dry every day."
     whole = round(wettest.rain)
     amount = f"{whole} {'millimetre' if whole == 1 else 'millimetres'}"
+    if wettest.rain - driest.rain < DRY:
+        # RULE: a week of even rain names no wettest day
+        return f"Much the same {wettest.falls} every day, up to {amount}."
     wet, dry = _within_a_sentence(wettest.date, today), _within_a_sentence(driest.date, today)
     # RULE: the week ends with its wettest and driest day
     return f"Wettest is {wet}, with {amount}; driest is {dry}."
