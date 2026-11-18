@@ -1,0 +1,5 @@
+[[rule]]
+name = "am and pm hours are read on a twelve hour clock"
+file = "src/weather_mcp/clock.py"
+find = '^        hour = hour % HALF_DAY \+ \(HALF_DAY if parts\["half"\]\.startswith\("p"\) else 0\)$'
+replace = 'pass'

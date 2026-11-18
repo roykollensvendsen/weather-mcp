@@ -1,0 +1,5 @@
+[[rule]]
+name = "an hour said twice in autumn means the first"
+file = "src/weather_mcp/clock.py"
+find = '^    wall = dt\.datetime\(day\.year, day\.month, day\.day, hour, tzinfo=OSLO\)$'
+replace = 'wall = dt.datetime(day.year, day.month, day.day, hour, tzinfo=OSLO, fold=1)'
