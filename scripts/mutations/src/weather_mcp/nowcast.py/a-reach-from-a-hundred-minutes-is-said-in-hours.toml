@@ -1,0 +1,5 @@
+[[rule]]
+name = "a reach from a hundred minutes is said in hours"
+file = "src/weather_mcp/nowcast.py"
+find = '''^TWO_HOURS = 100$'''
+replace = '''TWO_HOURS = 105'''
