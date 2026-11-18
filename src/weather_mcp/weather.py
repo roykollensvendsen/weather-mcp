@@ -595,6 +595,8 @@ class Weather:
     def __init__(self, config: Config, cache: CachedClient, places: PlaceFinder) -> None:
         """Answer from config's home, or from a name the finder can place."""
         self._config, self._cache, self._places = config, cache, places
+        #: When the radar answer last read was fetched, so each answer from MET is read fresh once.
+        self._radar_read: dt.datetime | None = None
 
     async def now(
         self,
@@ -749,8 +751,9 @@ class Weather:
             return ""
         now = self._cache.now()
         sky = _sky(answer.data["properties"]["timeseries"][0])
+        fresh, self._radar_read = nowcast.fetched != self._radar_read, nowcast.fetched
         try:
-            return radar_sentence(nowcast.data, now, called(sky))
+            return radar_sentence(nowcast.data, now, called(sky), fresh=fresh)
         # RULE: an odd radar answer leaves the answer as it was
         except (KeyError, TypeError, ValueError):
             return ""

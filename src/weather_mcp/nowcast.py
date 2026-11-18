@@ -33,8 +33,16 @@ def called(sky: str) -> str:
     return next((word.title() for word in ("snow", "sleet") if word in sky), "Rain")
 
 
-def _ahead(data: dict[str, Any], now: dt.datetime) -> list[tuple[dt.datetime, float]]:
-    """The radar's steps from the one under way, each with its rain rate."""
+def _unrated(*, seen: bool, rated: bool, fresh: bool) -> None:
+    """Warn when a seeing radar gives steps but no rain rate, so a renamed field shows."""
+    # RULE: a seeing radar with no rain rate is logged
+    # RULE: a missing rain rate is logged once for each answer from met
+    if fresh and seen and not rated:
+        log.warning("MET's nowcast sees but gives no precipitation_rate")
+
+
+def _ahead(data: dict[str, Any], now: dt.datetime, *, fresh: bool) -> list[tuple[dt.datetime, float]]:
+    """The radar's steps from the one under way, each with its rain rate; `fresh` is a new answer."""
     # RULE: a radar that cannot see says nothing
     if data["properties"]["meta"].get("radar_coverage") != "ok":
         return []
@@ -46,9 +54,7 @@ def _ahead(data: dict[str, Any], now: dt.datetime) -> list[tuple[dt.datetime, fl
         for entry in data["properties"]["timeseries"]
     ]
     rated = [(time, float(rate)) for time, rate in steps if rate is not None]
-    # RULE: a seeing radar with no rain rate is logged
-    if steps and not rated:
-        log.warning("MET's nowcast sees but gives no precipitation_rate")
+    _unrated(seen=bool(steps), rated=bool(rated), fresh=fresh)
     # RULE: the step under way counts as now
     start = max((time for time, _ in rated if time <= now), default=now)
     # RULE: past radar steps are left out
@@ -72,9 +78,9 @@ def _changes(change: dt.datetime, now: dt.datetime, falls: str, *, wet: bool) ->
     return f" {falls} from about {at}{when}."
 
 
-def radar_sentence(data: dict[str, Any], now: dt.datetime, falls: str) -> str:
+def radar_sentence(data: dict[str, Any], now: dt.datetime, falls: str, *, fresh: bool = True) -> str:
     """A sentence led by a space, such as " Rain from about 13:25.", or "" with no radar."""
-    ahead = _ahead(data, now)
+    ahead = _ahead(data, now, fresh=fresh)
     minutes = int((ahead[-1][0] - now).total_seconds() // 60) if ahead else 0
     # RULE: a radar with no steps ahead says nothing
     if minutes < STEP:
