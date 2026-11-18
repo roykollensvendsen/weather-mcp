@@ -1,0 +1,5 @@
+[[rule]]
+name = "an hour has no more than sixty minutes"
+file = "src/weather_mcp/clock.py"
+find = '^    if int\(parts\[\"minute\"\] or 0\) >= MINUTES:$'
+replace = 'if False:'

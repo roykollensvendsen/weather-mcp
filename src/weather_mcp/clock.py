@@ -27,13 +27,17 @@ MINUTES = 60
 def which_hour(said: str) -> int | None:
     """The hour of the day `said` names, 0 to 23, or None when it names none. Minutes are cut."""
     parts = TIME.match(" ".join(said.lower().rstrip(TRAILING).split()))
-    if parts is None or int(parts["minute"] or 0) >= MINUTES:
+    if parts is None:
+        return None
+    # RULE: an hour has no more than sixty minutes
+    if int(parts["minute"] or 0) >= MINUTES:
         return None
     hour = int(parts["hour"])
     if parts["half"]:
-        # RULE: am and pm hours are read on a twelve hour clock
+        # RULE: a twelve hour clock has no hour past twelve
         if not 1 <= hour <= HALF_DAY:
             return None
+        # RULE: am and pm hours are read on a twelve hour clock
         hour = hour % HALF_DAY + (HALF_DAY if parts["half"].startswith("p") else 0)
     # RULE: an hour past the last of the day means none
     return hour if hour < DAY_HOURS else None

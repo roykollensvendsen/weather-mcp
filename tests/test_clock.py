@@ -41,7 +41,7 @@ def test_am_and_pm_hours_are_read_on_a_twelve_hour_clock(said, hour):
     assert which_hour(said) == hour
 
 
-@pytest.mark.parametrize("said", ["24", "25", "13 pm", "0 am", "15:75"])
+@pytest.mark.parametrize("said", ["24", "25", "99"])
 def test_an_hour_past_the_last_of_the_day_means_none(said):
     assert which_hour(said) is None
 
@@ -68,3 +68,13 @@ def test_an_ordinary_hour_is_that_hour_in_oslo():
     at = at_hour(dt.date(2026, 11, 20), 15)
     assert at == dt.datetime(2026, 11, 20, 14, tzinfo=dt.UTC)
     assert at.tzinfo == OSLO
+
+
+@pytest.mark.parametrize("said", ["13 pm", "0 am", "20 pm"])
+def test_a_twelve_hour_clock_has_no_hour_past_twelve(said):
+    assert which_hour(said) is None
+
+
+@pytest.mark.parametrize("said", ["15:60", "15:75", "15.99"])
+def test_an_hour_has_no_more_than_sixty_minutes(said):
+    assert which_hour(said) is None
