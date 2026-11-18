@@ -18,6 +18,8 @@ TRACE = 0.1
 TWO_HOURS = 110
 #: The fewest minutes ahead worth a sentence: one radar step.
 STEP = 5
+#: How many steps in a row a change must last to be said; one alone is speckle.
+SETTLED = 2
 
 
 def called(sky: str) -> str:
@@ -59,7 +61,8 @@ def radar_sentence(data: dict[str, Any], now: dt.datetime, falls: str) -> str:
         return ""
     # RULE: a trace below a tenth of a millimetre is dry
     wet = [rate >= TRACE for _, rate in ahead]
-    change = next((time for (time, _), now_wet in zip(ahead, wet, strict=True) if now_wet != wet[0]), None)
+    # RULE: a single step of speckle is not a change
+    change = next((ahead[n][0] for n in range(len(wet)) if wet[0] not in wet[n : n + SETTLED]), None)
     if change is None:
         # RULE: rain all through says so
         # RULE: no rain on the radar says dry

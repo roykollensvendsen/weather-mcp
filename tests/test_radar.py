@@ -147,3 +147,14 @@ def test_a_slow_radar_leaves_the_answer_as_it_was(monkeypatch):
 
 def test_the_radar_is_given_a_few_seconds():
     assert 1 <= weather_module.RADAR_WITHIN <= 4
+
+
+@pytest.mark.parametrize(
+    ("rates", "said"),
+    [
+        ([DRY] * 5 + [WET] + [DRY] * 19, "Dry for the next two hours."),
+        ([WET] * 5 + [DRY] + [WET] * 19, "Rain for the next two hours."),
+    ],
+)
+def test_a_single_step_of_speckle_is_not_a_change(rates, said):
+    assert _say(rates) == f"{NOW} {said}"
