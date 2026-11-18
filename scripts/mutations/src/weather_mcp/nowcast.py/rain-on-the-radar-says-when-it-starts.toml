@@ -1,5 +1,5 @@
 [[rule]]
 name = "rain on the radar says when it starts"
 file = "src/weather_mcp/nowcast.py"
-find = '^    return f" \{falls\} until about \{at\}\." if wet\[0\]'
-replace = 'return f" {falls} until about {at}."'
+find = '''^    return f" \{falls\} from about \{at\}\{when\}\."$'''
+replace = '''return f" {falls} until about {at}."'''

@@ -21,6 +21,8 @@ TWO_HOURS = 110
 STEP = 5
 #: How many steps in a row a change must last to be said; one alone is speckle.
 SETTLED = 2
+#: Rain sooner than this many minutes away is also said as how soon.
+HOUR = 60
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +60,18 @@ def _reach(minutes: int) -> str:
     return "two hours" if minutes >= TWO_HOURS else f"{minutes // STEP * STEP} minutes"
 
 
+def _changes(change: dt.datetime, now: dt.datetime, falls: str, *, wet: bool) -> str:
+    at = f"{change.astimezone(OSLO):%H:%M}"
+    # RULE: rain falling now says when it stops
+    if wet:
+        return f" {falls} until about {at}."
+    soon = int((change - now).total_seconds() // 60)
+    # RULE: rain within the hour also says how soon
+    when = f", in {max(soon // STEP * STEP, STEP)} minutes" if soon < HOUR else ""
+    # RULE: rain on the radar says when it starts
+    return f" {falls} from about {at}{when}."
+
+
 def radar_sentence(data: dict[str, Any], now: dt.datetime, falls: str) -> str:
     """A sentence led by a space, such as " Rain from about 13:25.", or "" with no radar."""
     ahead = _ahead(data, now)
@@ -73,7 +87,4 @@ def radar_sentence(data: dict[str, Any], now: dt.datetime, falls: str) -> str:
         # RULE: rain all through says so
         # RULE: no rain on the radar says dry
         return f" {falls if wet[0] else 'Dry'} for the next {_reach(minutes)}."
-    at = f"{change.astimezone(OSLO):%H:%M}"
-    # RULE: rain falling now says when it stops
-    # RULE: rain on the radar says when it starts
-    return f" {falls} until about {at}." if wet[0] else f" {falls} from about {at}."
+    return _changes(change, now, falls, wet=wet[0])
