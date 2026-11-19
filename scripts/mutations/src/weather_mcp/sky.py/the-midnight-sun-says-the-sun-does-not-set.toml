@@ -1,0 +1,5 @@
+[[rule]]
+name = "the midnight sun says the sun does not set"
+file = "src/weather_mcp/sky.py"
+find = '''^        up = bool\(said\["solarmidnight"\]'''
+replace = '''up = False'''

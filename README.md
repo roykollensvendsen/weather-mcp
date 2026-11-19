@@ -14,13 +14,15 @@ accuracy_m?)` says one clock hour, or the hours between two: "at 15", "from 14 t
 lon?, accuracy_m?)` says one detail beyond the basics, as Yr's app shows it: the UV index on
 a clear sky, humidity, dew point, fog, or the wind with its gusts and direction. It says the
 value and the time it is for, now if no time is given, and a range or a peak over a span.
+It also says sunrise and sunset, the moon's phase, and moonrise and moonset, for a day, from
+MET's sunrise service; in the polar night the sun "does not rise".
 
 A day is said as the owner says it, in Norwegian or English: "i morgen", "fredag", "on
 Friday", "neste fredag", "20.11" or "20. november". A time is "15", "15:00", "15.00",
 "kl. 15" or "3 pm"; a bare hour is on a 24-hour clock, and the answer says it back. The plugin works the date out itself, from today in
 Oslo. Beyond the first two and a half days MET gives six-hour blocks, so a range there
 starts with "about". The first four read the same forecast from MET, so asking them all asks once;
-`weather_detail` reads MET's complete forecast, which carries the details.
+`weather_detail` reads MET's complete forecast, which carries the details, or its sunrise service.
 A place is a name in Norway, as spoken: "Bergen", or "Moen i Agder" when a name is
 shared. The voice sends the phone's position, so "the weather here" is where you are.
 A named place comes first, then the position, then home. The answer is one short

@@ -1,0 +1,5 @@
+[[rule]]
+name = "a day the sun only rises says no sunset"
+file = "src/weather_mcp/sky.py"
+find = '''^    return f"no \{name\}" if clock is None'''
+replace = '''return f"{name} at {clock}"'''

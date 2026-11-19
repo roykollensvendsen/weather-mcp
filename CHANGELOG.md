@@ -15,7 +15,8 @@ versions follow [semantic versioning](https://semver.org/spec/v2.0.0.html).
 - `weather_hours` for one clock time or the hours between two, said as "15",
   "kl. 15" or "3 pm", on any day the forecast covers.
 - `weather_detail` for one detail Yr's app shows beyond the basics: the UV index,
-  humidity, dew point, fog, or the wind with its gusts and direction.
+  humidity, dew point, fog, or the wind with its gusts and direction; and
+  sunrise, sunset and the moon's phase, rise and set, from MET's sunrise service.
 - Rain from MET's radar in `weather_now`, in plain words: no rain for the next
   two hours, light rain in about 25 minutes or any minute now, or moderate rain
   until about a time with how many millimetres.

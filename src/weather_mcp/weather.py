@@ -21,6 +21,7 @@ from weather_mcp.config import Place, config_path
 from weather_mcp.days import label, which_day
 from weather_mcp.detail import COMPLETE, WHICH_DETAIL, detail_said, not_given, which_detail
 from weather_mcp.nowcast import NOWCAST, called, radar_sentence
+from weather_mcp.sky import SKY, sky_params, sky_said
 
 if TYPE_CHECKING:
     from weather_mcp.cache import Answer, CachedClient
@@ -599,10 +600,20 @@ def _detail_day(kind: str, day: str, now: dt.datetime) -> tuple[dt.datetime, dt.
     # RULE: a detail with no time is for now
     if date == now.date() and kind != "uv":
         return hour, _later(hour, 1), "Now"
-    # RULE: another day with no time is the whole day
     # RULE: uv with no time is the rest of todays peak
     start = max(at_hour(date, 0), hour)
+    # RULE: another day with no time is the whole day
     return start, at_hour(date + dt.timedelta(days=1), 0), label(date, now.date())
+
+
+def _sky_day(day: str, now: dt.datetime) -> dt.date | str:
+    """The day the sun or the moon is asked about, or the sentence saying why there is none."""
+    date = which_day(day, now.date())
+    if date is None:
+        return WHICH
+    # RULE: sun or moon on a day gone is refused
+    gone = date < now.date()
+    return PASSED if gone else date
 
 
 #: The longest place name said back, in letters. Names longer than this are cut, not refused.
@@ -753,6 +764,8 @@ class Weather:
         if kind is None:
             # RULE: an unknown detail lists the words
             return {"success": False, "say": WHICH_DETAIL}
+        if kind in SKY:
+            return await self._sky(kind, day, place, (lat, lon, accuracy_m), now)
         asked = _detail_asked(kind, day, from_time, to_time, now)
         if isinstance(asked, str):
             return {"success": False, "say": asked}
@@ -769,14 +782,41 @@ class Weather:
         say = f"{opening} {_spoken(where)}: {said}." + _rough(where, accuracy_m)
         return {"success": True, "say": say, "place": where.name}
 
+    async def _sky(
+        self,
+        kind: str,
+        day: str,
+        place: str | None,
+        position: tuple[float | None, float | None, float | None],
+        now: dt.datetime,
+    ) -> dict[str, Any]:
+        """The sun or the moon on the day asked about, from MET's sunrise service."""
+        date = _sky_day(day, now)
+        if isinstance(date, str):
+            return {"success": False, "say": date}
+        lat, lon, accuracy_m = position
+        # RULE: sun and moon are asked for the day asked about
+        found = await self._look_up(place, lat, lon, forecast=SKY[kind], also=sky_params(date))
+        if isinstance(found, dict):
+            return found
+        where, answer = found
+        say = f"{label(date, now.date())} {_spoken(where)}: {sky_said(kind, answer.data)}."
+        return {"success": True, "say": say + _rough(where, accuracy_m), "place": where.name}
+
     async def _look_up(
-        self, place: str | None, lat: float | None, lon: float | None, *, forecast: str = FORECAST
+        self,
+        place: str | None,
+        lat: float | None,
+        lon: float | None,
+        *,
+        forecast: str = FORECAST,
+        also: dict[str, str] | None = None,
     ) -> tuple[Place, Answer] | dict[str, Any]:
         """The place asked about and MET's answer for it, or the refusal to say instead."""
         where = await self._resolve(place, lat, lon)
         if isinstance(where, str):
             return {"success": False, "say": where}
-        answer = await self._fetch(where, forecast)
+        answer = await self._fetch(where, forecast, also or {})
         if isinstance(answer, str):
             return {"success": False, "say": answer}
         return where, answer
@@ -788,11 +828,14 @@ class Weather:
         here = _position(lat, lon)
         return here if here is not None else await self._where(None)
 
-    async def _fetch(self, where: Place, forecast: str = FORECAST) -> Answer | str:
-        """MET's forecast for the point, compact unless told, or the sentence saying why there is none."""
+    async def _fetch(
+        self, where: Place, forecast: str = FORECAST, also: dict[str, str] | None = None
+    ) -> Answer | str:
+        """MET's answer for the point, the compact forecast unless told, or why there is none."""
         try:
             # A position is the phone's own, so it is kept in memory only, never in the file.
-            return await self._cache.get_json(forecast, point(where), on_disk=not isinstance(where, Here))
+            asked = point(where) | (also or {})
+            return await self._cache.get_json(forecast, asked, on_disk=not isinstance(where, Here))
         except SlowedDownError:
             return HELD_OFF
         except RefusedError:

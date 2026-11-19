@@ -1,0 +1,5 @@
+[[rule]]
+name = "sun or moon on a day gone is refused"
+file = "src/weather_mcp/weather.py"
+find = '''^    gone = date < now\.date\(\)$'''
+replace = '''gone = False'''

@@ -1,0 +1,5 @@
+[[rule]]
+name = "moonrise and moonset come from mets moon answer"
+file = "src/weather_mcp/sky.py"
+find = '''^    return _event\(kind, said\[kind\]\)'''
+replace = '''return _event(kind, said["moonrise"])'''

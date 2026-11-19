@@ -1,0 +1,5 @@
+[[rule]]
+name = "summer is asked with summer time"
+file = "src/weather_mcp/sky.py"
+find = '''^    return \{"date": date\.isoformat\(\), "offset": f'''
+replace = '''return {"date": date.isoformat(), "offset": "+01:00"}'''

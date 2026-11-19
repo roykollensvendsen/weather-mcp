@@ -1,7 +1,8 @@
 """One detail of MET's complete forecast, said as its value and nothing more.
 
 The details are those Yr's app shows beyond the basics: the UV index, humidity, dew point,
-fog and the wind with its gusts and direction. Each answer is one value for one time, or
+fog and the wind with its gusts and direction. The sun and the moon are words here too,
+but their answers come from MET's sunrise service, in sky. Each answer is one value for one time, or
 for a stretch of time said briefly: a range, a peak or the strongest hour.
 """
 
@@ -18,8 +19,16 @@ WORDS = {
     "dew_point": ("dew point", "dew_point", "dewpoint"),
     "fog": ("fog", "visibility"),
     "wind": ("wind", "gusts", "gust", "wind direction"),
+    "sunrise": ("sunrise", "sun rise", "sun up"),
+    "sunset": ("sunset", "sun set", "sundown"),
+    "sun": ("sun", "daylight"),
+    "moon": ("moon", "moon phase", "moonphase"),
+    "moonrise": ("moonrise", "moon rise"),
+    "moonset": ("moonset", "moon set"),
 }
-WHICH_DETAIL = "Which detail? Say uv, humidity, dew point, fog or wind."
+WHICH_DETAIL = (
+    "Which detail? Say uv, humidity, dew point, fog, wind, sunrise, sunset, sun, moon, moonrise or moonset."
+)
 #: MET's own field for each detail, as its complete forecast names it (read 2026-11-19).
 FIELD = {
     "uv": "ultraviolet_index_clear_sky",
@@ -43,8 +52,8 @@ STEP_HOURS = 6
 
 def which_detail(what: str) -> str | None:
     """The detail a spoken word names, or None for one not known."""
-    word = " ".join(what.lower().replace("-", " ").split())
     # RULE: a detail is known by its own word and the words also taken for it
+    word = " ".join(what.lower().replace("-", " ").split())
     return next((kind for kind, words in WORDS.items() if word in words), None)
 
 
@@ -86,6 +95,9 @@ def _dew_point(values: list[float]) -> str:
 
 def _uv(values: list[float]) -> str:
     index = _whole(max(values))
+    # RULE: a uv peak of nothing says no uv
+    if index == 0 and len(values) > 1:
+        return "no UV"
     # RULE: uv is named by the who bands
     band = next(name for lowest, name in UV_BANDS if index >= lowest)
     return f"UV index {'up to ' if len(values) > 1 else ''}{index} on a clear sky, {band}"

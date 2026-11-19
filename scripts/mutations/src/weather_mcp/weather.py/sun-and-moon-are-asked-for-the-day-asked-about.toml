@@ -1,0 +1,5 @@
+[[rule]]
+name = "sun and moon are asked for the day asked about"
+file = "src/weather_mcp/weather.py"
+find = '''^        found = await self\._look_up\(place, lat, lon, forecast=SKY\[kind\], also='''
+replace = '''found = await self._look_up(place, lat, lon, forecast=SKY[kind])'''
