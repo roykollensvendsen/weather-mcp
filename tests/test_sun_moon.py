@@ -3,9 +3,14 @@
 The fake's clock is 13:00 in Oslo on Saturday 14 November 2026.
 """
 
+import json
+import pathlib
+
 import pytest
 from fakes import MOON_PATH, SUN_PATH, FakeApi, moon, sun
 from test_weather_now import Voice
+
+from weather_mcp.sky import sky_said
 
 
 def _detail(api=None, **asked):
@@ -104,3 +109,38 @@ def test_the_detail_words_name_the_sun_and_moon():
     answer, _ = _detail(what="pollen")
     words = "uv, humidity, dew point, fog, wind, sunrise, sunset, sun, moon, moonrise or moonset"
     assert answer["say"] == f"Which detail? Say {words}."
+
+
+#: The keys and types of MET's live sun and moon answers, read on 2026-11-19 with no values.
+SHAPES = json.loads((pathlib.Path(__file__).parent / "met_sunrise_shapes.json").read_text())
+
+
+def _filled(shape):
+    """A made-up answer in MET's live shape: a time for each string, so a misnamed key shows."""
+    if isinstance(shape, dict):
+        return {key: _filled(inner) for key, inner in shape.items()}
+    return {"str": "2026-11-14T08:24+01:00", "float": 100.0, "bool": False, "list": []}[shape]
+
+
+def _fits(given, live, path=""):
+    """Each key the fake gives is in the live answer, with its type; a time may be None."""
+    if isinstance(given, dict):
+        assert isinstance(live, dict), path
+        for key, inner in given.items():
+            assert key in live, f"{path}.{key} is not in MET's live answer"
+            _fits(inner, live[key], f"{path}.{key}")
+    elif not (given is None and live == "str"):
+        assert type(given).__name__ in {live, "int" if live == "float" else live}, path
+
+
+@pytest.mark.parametrize("kind", ["sunrise", "sunset", "sun", "moon", "moonrise", "moonset"])
+def test_sky_reads_the_keys_met_really_sends(kind):
+    body = "sun" if kind.startswith("sun") else "moon"
+    said = sky_said(kind, _filled(SHAPES[body]))
+    assert said
+    assert "no " not in said
+
+
+def test_the_fakes_answer_in_mets_live_shape():
+    for given in (sun(), sun(None, None), moon(), moon(rise=None)):
+        _fits(given, SHAPES[given["properties"]["body"].lower()])

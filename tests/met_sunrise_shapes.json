@@ -1,0 +1,70 @@
+{
+  "_read": "2026-11-19, keys and types only, from MET sunrise 3.0 sun and moon",
+  "sun": {
+    "copyright": "str",
+    "licenseURL": "str",
+    "type": "str",
+    "geometry": {
+      "type": "str",
+      "coordinates": "list"
+    },
+    "when": {
+      "interval": "list"
+    },
+    "properties": {
+      "body": "str",
+      "sunrise": {
+        "time": "str",
+        "azimuth": "float"
+      },
+      "sunset": {
+        "time": "str",
+        "azimuth": "float"
+      },
+      "solarnoon": {
+        "time": "str",
+        "disc_centre_elevation": "float",
+        "visible": "bool"
+      },
+      "solarmidnight": {
+        "time": "str",
+        "disc_centre_elevation": "float",
+        "visible": "bool"
+      }
+    }
+  },
+  "moon": {
+    "copyright": "str",
+    "licenseURL": "str",
+    "type": "str",
+    "geometry": {
+      "type": "str",
+      "coordinates": "list"
+    },
+    "when": {
+      "interval": "list"
+    },
+    "properties": {
+      "body": "str",
+      "moonrise": {
+        "time": "str",
+        "azimuth": "float"
+      },
+      "moonset": {
+        "time": "str",
+        "azimuth": "float"
+      },
+      "high_moon": {
+        "time": "str",
+        "disc_centre_elevation": "float",
+        "visible": "bool"
+      },
+      "low_moon": {
+        "time": "str",
+        "disc_centre_elevation": "float",
+        "visible": "bool"
+      },
+      "moonphase": "float"
+    }
+  }
+}
