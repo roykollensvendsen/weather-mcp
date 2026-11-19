@@ -49,6 +49,7 @@ def _one_rule(tmp_path, *, left_mutated=False):
 
 def _point_at(monkeypatch, mutate, root, *argv):
     monkeypatch.setattr(mutate.sys, "argv", ["mutate.py", *argv])
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)  # CI's own page is not a test's to write
     monkeypatch.setattr(mutate, "ROOT", root)
     monkeypatch.setattr(mutate, "ROWS", root / "scripts/mutations")
     monkeypatch.setattr(mutate, "RECOVERY", root / "scripts/.mutate-recovery.json")
@@ -197,3 +198,45 @@ def test_a_second_stop_cannot_cut_a_mutation_runs_cleanup_short(tmp_path):
     assert text == "x = 1\n"
     assert not recovery_left
     assert code in ENDS[signal.SIGINT], err
+
+
+def _broken_rule(tmp_path):
+    """A scratch checkout whose one row cuts its line off mid-expression."""
+    root, source = _one_rule(tmp_path)
+    (root / "scripts/mutations/src/pkg/core.py/a-rule.toml").write_text(
+        '[[rule]]\nname = "a rule"\nfile = "src/pkg/core.py"\nfind = "x = 1"\nreplace = "x = ("\n'
+    )
+    return root, source
+
+
+def test_a_row_that_breaks_the_code_is_reported_as_broken(tmp_path, monkeypatch, mutate, capsys):
+    """A replacement that does not compile fails every test, which would pass for a kill."""
+    root, source = _broken_rule(tmp_path)
+    suites = _point_at(monkeypatch, mutate, root)
+    assert mutate.main() == 1
+    out = capsys.readouterr().out
+    assert "BROKEN   a rule: the replacement is not valid code" in out
+    assert "BROKEN ROW" in out
+    assert "KILLED" not in out
+    assert suites == []
+    assert source.read_text() == "x = 1\n"
+
+
+def test_broken_rows_are_named_in_the_written_report(tmp_path, monkeypatch, mutate):
+    root, _ = _broken_rule(tmp_path)
+    page = tmp_path / "evidence.md"
+    _point_at(monkeypatch, mutate, root, "--write", str(page))
+    mutate.main()
+    assert "Broken rows, so nothing was tested: a rule." in page.read_text()
+
+
+def test_broken_rows_are_named_in_the_step_summary(tmp_path, monkeypatch, mutate):
+    root, _ = _broken_rule(tmp_path)
+    summary = tmp_path / "summary.md"
+    summary.write_text("an earlier step\n")
+    _point_at(monkeypatch, mutate, root)
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    mutate.main()
+    said = summary.read_text()
+    assert said.startswith("an earlier step\n")
+    assert "Broken rows, so nothing was tested: a rule." in said

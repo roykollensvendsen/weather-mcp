@@ -1,0 +1,5 @@
+[[rule]]
+name = "broken rows are named in the written report"
+file = "scripts/mutate.py"
+find = '^ {8}write\.write_text\(report\(results, said\)\)$'
+replace = 'write.write_text(report(results, ""))'

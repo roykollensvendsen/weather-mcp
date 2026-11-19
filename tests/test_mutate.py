@@ -21,6 +21,7 @@ def _runner(monkeypatch, tmp_path):
     monkeypatch.setattr(module, "RECOVERY", tmp_path / ".mutate-recovery.json")
     monkeypatch.setattr(module, "ROWS", tmp_path / "mutations")
     monkeypatch.setattr(module, "check_the_package", lambda: None)  # tmp_path holds no package
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)  # CI's own page is not a test's to write
     return module
 
 

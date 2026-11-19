@@ -1,0 +1,5 @@
+[[rule]]
+name = "broken rows are named in the step summary"
+file = "scripts/mutate.py"
+find = '^ {12}page\.write\(said'
+replace = 'pass'
