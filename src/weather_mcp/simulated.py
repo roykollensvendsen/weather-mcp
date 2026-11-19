@@ -88,6 +88,22 @@ def _entry(time: dt.datetime, *, hourly: bool, last: bool) -> dict[str, Any]:
     return {"time": time.strftime("%Y-%m-%dT%H:%M:%SZ"), "data": data}
 
 
+def _sky_answer(params: httpx.QueryParams) -> dict[str, Any]:
+    """A made-up sunrise 3.0 answer for the day asked: the sun up 08:30 to 15:30, the moon by date."""
+    date, offset = params.get("date", "2026-01-01"), params.get("offset", "+01:00")
+    day = dt.date.fromisoformat(date)
+    return {
+        "properties": {
+            "sunrise": {"time": f"{date}T08:30{offset}"},
+            "sunset": {"time": f"{date}T15:30{offset}"},
+            "solarmidnight": {"visible": False},
+            "moonrise": {"time": f"{date}T14:00{offset}"},
+            "moonset": {"time": f"{date}T01:00{offset}"},
+            "moonphase": day.toordinal() * 12.2 % 360,  # about a lunar month of 29.5 days
+        }
+    }
+
+
 def _place(name: str, place: Place) -> dict[str, Any]:
     return {
         "stedsnavn": [{"skrivemåte": name, "navnestatus": "hovednavn"}],
@@ -106,12 +122,17 @@ def _answer(request: httpx.Request) -> httpx.Response:
         expires = now + dt.timedelta(minutes=30)
         headers = {"Expires": expires.strftime("%a, %d %b %Y %H:%M:%S GMT")}
         return httpx.Response(200, headers=headers, content=json.dumps(_forecast(now)).encode())
+    if "/sunrise/3.0/" in request.url.path:
+        return httpx.Response(200, content=json.dumps(_sky_answer(request.url.params)).encode())
     if request.url.path.endswith("/stedsnavn/v1/sted"):
-        name = request.url.params.get("sok", "")
-        hits = [_place(n, p) for n, p in PLACES.items() if n.lower() == name.lower()]
-        body = {"metadata": {"totaltAntallTreff": len(hits)}, "navn": hits}
-        return httpx.Response(200, content=json.dumps(body).encode())
+        return httpx.Response(200, content=json.dumps(_places(request.url.params.get("sok", ""))).encode())
     return httpx.Response(404)
+
+
+def _places(name: str) -> dict[str, Any]:
+    """Kartverket's answer for a name, from the made-up places."""
+    hits = [_place(n, p) for n, p in PLACES.items() if n.lower() == name.lower()]
+    return {"metadata": {"totaltAntallTreff": len(hits)}, "navn": hits}
 
 
 @asynccontextmanager

@@ -49,8 +49,9 @@ TO = (
 WHEN = "The day, said as for weather_forecast: 'today', 'i morgen', 'fredag' or '20.11'. Today if not said."
 #: Which detail weather_detail is asked for.
 WHAT = (
-    "The one detail asked about: 'uv', 'humidity', 'dew point', 'fog' (also for visibility) or"
-    " 'wind' (with its gusts and direction)."
+    "The one detail asked about: 'uv', 'humidity', 'dew point', 'fog' (also for visibility),"
+    " 'wind' (with its gusts and direction), 'sunrise', 'sunset', 'sun' (both), 'moon' (its"
+    " phase), 'moonrise' or 'moonset'."
 )
 #: The hour a detail is asked for; with none it is now, or the whole of another day.
 DETAIL_FROM = FROM + " Leave it out for now, or for the whole of another day."
@@ -222,10 +223,12 @@ def build_server(
     @server.tool(
         annotations=LOOKS,
         description="One detail beyond the basics, as Yr's app shows it, said as its value and the"
-        " time it is for: the UV index on a clear sky, humidity, dew point, fog, or the wind with"
-        " its gusts and direction. Use it only when one of these is asked about; for the weather"
-        " itself use the other tools. With a span of time it gives a range, the peak or the"
-        " strongest hour. Send the phone's position as lat, lon and accuracy_m when you have it;"
+        " time it is for: the UV index on a clear sky, humidity, dew point, fog, the wind with"
+        " its gusts and direction, sunrise and sunset, or the moon's phase, rise and set. Use it"
+        " only when one of these is asked about; for the weather itself use the other tools."
+        " With a span of time it gives a range, the peak or the strongest hour; the sun and"
+        " the moon are for the whole day. Send the phone's position as lat, lon and accuracy_m"
+        " when you have it;"
         " a named place comes first, and with neither it is home. Data from MET Norway and Kartverket.",
     )
     async def weather_detail(  # noqa: PLR0913, PLR0917 - each input as the voice sends it

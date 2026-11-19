@@ -1,0 +1,5 @@
+[[rule]]
+name = "the polar night says the sun does not rise"
+file = "src/weather_mcp/sky.py"
+find = '''^        return "the sun does not set" if up'''
+replace = '''return "the sun does not set"'''

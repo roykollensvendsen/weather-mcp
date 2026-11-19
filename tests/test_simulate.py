@@ -141,3 +141,17 @@ def test_a_simulated_run_gives_every_detail(what):
     answer = asyncio.run(go())
     assert answer["success"], answer
     assert answer["say"].startswith("Simulated: Tomorrow at 12:00 in ")
+
+
+@pytest.mark.parametrize("what", ["sunrise", "sunset", "sun", "moon", "moonrise", "moonset"])
+def test_a_simulated_run_gives_the_sun_and_moon(what):
+    from weather_mcp.simulated import simulated_server  # noqa: PLC0415
+
+    async def go():
+        async with simulated_server() as server:
+            result = await server.call_tool("weather_detail", {"what": what, "day": "tomorrow"})
+            return result.structured_content
+
+    answer = asyncio.run(go())
+    assert answer["success"], answer
+    assert answer["say"].startswith("Simulated: Tomorrow in ")

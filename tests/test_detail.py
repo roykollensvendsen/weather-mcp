@@ -105,6 +105,14 @@ def test_uv_with_no_time_is_the_rest_of_todays_peak():
     assert said == "Today in Testheim: UV index up to 4 on a clear sky, moderate."
 
 
+def test_a_uv_peak_of_nothing_says_no_uv():
+    """Late in the evening, or on a winter day, a peak of 0 is plainer said as none."""
+    said = _say(FakeApi(complete=detailed(_plain, start=START.replace(hour=11))), what="uv")
+    assert said == "Today in Testheim: no UV."
+    said = _say(FakeApi(complete=detailed(_plain)), what="uv", day="tomorrow")
+    assert said == "Tomorrow in Testheim: no UV."
+
+
 @pytest.mark.parametrize(
     ("fraction", "said"),
     [(9.9, "no fog expected"), (10.0, "fog possible"), (50.0, "fog possible"), (50.1, "fog likely")],
@@ -195,7 +203,7 @@ def test_a_detail_met_does_not_give_that_far_ahead_says_so():
 
 def test_an_unknown_detail_lists_the_words():
     answer = _detail(what="pollen")
-    assert answer == {"success": False, "say": "Which detail? Say uv, humidity, dew point, fog or wind."}
+    assert answer["say"].startswith("Which detail? Say uv, humidity, dew point, fog, wind, sunrise")
 
 
 def test_a_detail_past_the_forecast_says_how_far_it_reaches():

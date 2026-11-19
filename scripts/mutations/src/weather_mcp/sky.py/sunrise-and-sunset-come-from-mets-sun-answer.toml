@@ -1,0 +1,5 @@
+[[rule]]
+name = "sunrise and sunset come from mets sun answer"
+file = "src/weather_mcp/sky.py"
+find = '''^    return ", "\.join\(_event\(name, said\[name\]\)'''
+replace = '''return ", ".join(_event(name, said["sunrise"]) for name in events)'''

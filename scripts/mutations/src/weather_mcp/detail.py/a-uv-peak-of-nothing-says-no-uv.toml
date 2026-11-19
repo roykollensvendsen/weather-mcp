@@ -1,0 +1,5 @@
+[[rule]]
+name = "a uv peak of nothing says no uv"
+file = "src/weather_mcp/detail.py"
+find = '''^    if index == 0 and len\(values\) > 1:'''
+replace = '''if False:'''

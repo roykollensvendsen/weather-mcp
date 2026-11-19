@@ -23,6 +23,8 @@ START = dt.datetime(2026, 11, 14, 12, 0, tzinfo=dt.UTC)
 LAST_MODIFIED = "Sat, 14 Nov 2026 11:30:00 GMT"
 FORECAST_PATH = "/weatherapi/locationforecast/2.0/compact"
 COMPLETE_PATH = "/weatherapi/locationforecast/2.0/complete"
+SUN_PATH = "/weatherapi/sunrise/3.0/sun"
+MOON_PATH = "/weatherapi/sunrise/3.0/moon"
 NOWCAST_PATH = "/weatherapi/nowcast/2.0/complete"
 PLACES_PATH = "/stedsnavn/v1/sted"
 
@@ -155,6 +157,52 @@ def detailed(at, start: dt.datetime = START, hours: int = 60, far: int = 0) -> d
     return body
 
 
+def _at(clock: str | None, date: str, offset: str) -> dict[str, object]:
+    return {"time": None if clock is None else f"{date}T{clock}{offset}"}
+
+
+def sun(  # noqa: PLR0913 - one argument per field MET gives
+    rise: str | None = "08:24",
+    sets: str | None = "15:40",
+    *,
+    date: str = "2026-11-14",
+    offset: str = "+01:00",
+    noon_visible: bool = True,
+    midnight_visible: bool = False,
+) -> dict[str, object]:
+    """MET's sunrise 3.0 sun answer (read 2026-11-19); a time is None where the sun neither rises nor sets."""
+    return {
+        "type": "Feature",
+        "properties": {
+            "body": "Sun",
+            "sunrise": _at(rise, date, offset),
+            "sunset": _at(sets, date, offset),
+            "solarnoon": {"time": f"{date}T12:02{offset}", "visible": noon_visible},
+            "solarmidnight": {"time": f"{date}T00:02{offset}", "visible": midnight_visible},
+        },
+    }
+
+
+def moon(
+    phase: float = 106.87,
+    rise: str | None = "13:57",
+    sets: str | None = "00:47",
+    *,
+    date: str = "2026-11-14",
+    offset: str = "+01:00",
+) -> dict[str, object]:
+    """MET's sunrise 3.0 moon answer (read 2026-11-19): rise, set and the phase in degrees from new."""
+    return {
+        "type": "Feature",
+        "properties": {
+            "body": "Moon",
+            "moonrise": _at(rise, date, offset),
+            "moonset": _at(sets, date, offset),
+            "moonphase": phase,
+        },
+    }
+
+
 def radar(rates: list[float], start: dt.datetime = START, coverage: str = "ok") -> dict[str, object]:
     """A nowcast as MET's complete one is (docs read 2026-11-18), five minutes a step.
 
@@ -252,6 +300,9 @@ class FakeApi:
     nowcast_delay: float = 0
     #: MET's complete forecast, which only the details read; with none, the compact body.
     complete: dict[str, object] | None = None
+    #: MET's sunrise 3.0 answers for the sun and the moon.
+    sun: dict[str, object] = field(default_factory=sun)
+    moon: dict[str, object] = field(default_factory=moon)
 
     def transport(self) -> httpx.MockTransport:
         return httpx.MockTransport(self._handle_async)
@@ -270,7 +321,12 @@ class FakeApi:
         self.requests.append(request)
         if request.url.path == PLACES_PATH:
             return self._places(request)
-        forecasts = {FORECAST_PATH: self.body, COMPLETE_PATH: self.complete or self.body}
+        forecasts = {
+            FORECAST_PATH: self.body,
+            COMPLETE_PATH: self.complete or self.body,
+            SUN_PATH: self.sun,
+            MOON_PATH: self.moon,
+        }
         if request.url.path in forecasts:
             return self._forecast(request, forecasts[request.url.path])
         if request.url.path == NOWCAST_PATH:
