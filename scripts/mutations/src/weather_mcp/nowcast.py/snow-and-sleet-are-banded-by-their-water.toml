@@ -1,0 +1,5 @@
+[[rule]]
+name = "snow and sleet are banded by their water"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    moderate, heavy = RAIN_BANDS if falls == "Rain" else SNOW_BANDS$'''
+replace = '''moderate, heavy = RAIN_BANDS'''

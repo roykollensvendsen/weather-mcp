@@ -89,7 +89,7 @@ def test_the_step_under_way_counts_as_now():
     ("symbol", "word"), [("snow", "Snow"), ("lightsleet", "Sleet"), ("heavyrain", "Rain")]
 )
 def test_the_radars_rain_is_called_what_the_sky_says_falls(symbol, word):
-    api = FakeApi(body=forecast(symbol=symbol), nowcast=radar([DRY] * 5 + [WET] * 20))
+    api = FakeApi(body=forecast(symbol=symbol), nowcast=radar([DRY] * 5 + [0.5] * 20))
     assert ask(api=api)["say"].endswith(f" Light {word.lower()} in about 25 minutes, around 13:25.")
 
 
@@ -240,6 +240,13 @@ def test_the_rain_is_called_light_moderate_or_heavy_by_its_heaviest_step(peak, w
     assert said == f"{NOW} {word} rain in about 25 minutes, around 13:25."
 
 
+@pytest.mark.parametrize(("peak", "word"), [(0.9, "Light"), (1.0, "Moderate"), (2.5, "Heavy")])
+def test_snow_and_sleet_are_banded_by_their_water(peak, word):
+    """A millimetre of water an hour is about a centimetre of snow, so snow's bands sit lower."""
+    api = FakeApi(body=forecast(symbol="snow"), nowcast=radar([DRY] * 5 + [peak] * 20))
+    assert ask(api=api)["say"].endswith(f" {word} snow in about 25 minutes, around 13:25.")
+
+
 def test_rain_falling_now_says_how_much():
     """Five steps of 6 mm an hour are 2.5 mm, said as about 3; a little is said as less than 1."""
     assert _say([6.0] * 5 + [DRY] * 20) == f"{NOW} Moderate rain until about 13:25, about 3 mm."
@@ -249,4 +256,4 @@ def test_rain_falling_now_says_how_much():
 def test_snow_and_sleet_are_never_said_in_millimetres():
     """The radar's millimetres are of water, and a voice saying them of snow would mislead."""
     api = FakeApi(body=forecast(symbol="snow"), nowcast=radar([6.0] * 5 + [DRY] * 20))
-    assert ask(api=api)["say"].endswith(" Moderate snow until about 13:25.")
+    assert ask(api=api)["say"].endswith(" Heavy snow until about 13:25.")
