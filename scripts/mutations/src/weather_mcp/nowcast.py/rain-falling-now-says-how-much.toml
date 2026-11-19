@@ -1,0 +1,5 @@
+[[rule]]
+name = "rain falling now says how much"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    return ", less than 1 mm" if total < 1'''
+replace = '''return ""'''

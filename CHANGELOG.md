@@ -14,5 +14,6 @@ versions follow [semantic versioning](https://semver.org/spec/v2.0.0.html).
   and `weather_week` for the coming days in a few short lines.
 - `weather_hours` for one clock time or the hours between two, said as "15",
   "kl. 15" or "3 pm", on any day the forecast covers.
-- Rain from MET's radar in `weather_now`: dry for the next two hours, rain
-  from about a time, or rain until about a time.
+- Rain from MET's radar in `weather_now`, in plain words: no rain for the next
+  two hours, light rain in about 25 minutes or any minute now, or moderate rain
+  until about a time with how many millimetres.

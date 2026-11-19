@@ -1,0 +1,5 @@
+[[rule]]
+name = "the rain is called light moderate or heavy by its heaviest step"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    word = "Heavy" if peak >= HEAVY'''
+replace = '''word = "Light"'''
