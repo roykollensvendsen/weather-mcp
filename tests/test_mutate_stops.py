@@ -227,7 +227,9 @@ def test_broken_rows_are_named_in_the_written_report(tmp_path, monkeypatch, muta
     page = tmp_path / "evidence.md"
     _point_at(monkeypatch, mutate, root, "--write", str(page))
     mutate.main()
-    assert "Broken rows, so nothing was tested: a rule." in page.read_text()
+    said = page.read_text()
+    assert "Broken rows, so nothing was tested: a rule." in said
+    assert "None survived" not in said, "a broken row was never tested, so it did not survive either"
 
 
 def test_broken_rows_are_named_in_the_step_summary(tmp_path, monkeypatch, mutate):
