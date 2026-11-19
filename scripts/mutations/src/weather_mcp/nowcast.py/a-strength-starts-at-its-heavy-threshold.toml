@@ -1,0 +1,5 @@
+[[rule]]
+name = "a strength starts at its heavy threshold"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    word = "Heavy" if peak >= heavy'''
+replace = '''word = "Heavy" if peak > heavy else "Moderate" if peak >= moderate else "Light"'''

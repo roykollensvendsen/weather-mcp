@@ -84,6 +84,8 @@ def _how(rates: list[float], falls: str) -> str:
     # RULE: snow and sleet are banded by their water
     moderate, heavy = RAIN_BANDS if falls == "Rain" else SNOW_BANDS
     # RULE: the rain is called light moderate or heavy by its heaviest step
+    # RULE: a strength starts at its heavy threshold
+    # RULE: a strength starts at its moderate threshold
     word = "Heavy" if peak >= heavy else "Moderate" if peak >= moderate else "Light"
     return f"{word} {falls.lower()}"
 
