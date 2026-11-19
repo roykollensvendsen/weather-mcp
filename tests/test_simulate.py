@@ -35,6 +35,8 @@ def no_network(monkeypatch):
         ("weather_week", {}),
         ("weather_hours", {"from_time": "12", "day": "tomorrow"}),
         ("weather_hours", {"from_time": "8", "to_time": "12", "day": "i morgen"}),
+        ("weather_detail", {"what": "uv"}),
+        ("weather_detail", {"what": "wind", "from_time": "15", "day": "tomorrow"}),
     ],
 )
 def test_every_simulated_answer_says_simulated_first(tool, arguments):
@@ -124,3 +126,18 @@ def test_a_simulated_run_reaches_as_far_as_mets_forecast():
     assert week["say"].startswith("Simulated: The next 5 days in Testheim: ")
     assert day["success"], day
     assert " in Testheim: about " in day["say"]  # a block day
+
+
+@pytest.mark.parametrize("what", ["uv", "humidity", "dew point", "fog", "wind"])
+def test_a_simulated_run_gives_every_detail(what):
+    from weather_mcp.simulated import simulated_server  # noqa: PLC0415
+
+    async def go():
+        async with simulated_server() as server:
+            asked = {"what": what, "from_time": "12", "day": "tomorrow"}
+            result = await server.call_tool("weather_detail", asked)
+            return result.structured_content
+
+    answer = asyncio.run(go())
+    assert answer["success"], answer
+    assert answer["say"].startswith("Simulated: Tomorrow at 12:00 in ")

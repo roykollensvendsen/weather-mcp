@@ -47,6 +47,13 @@ TO = (
 )
 #: How the day of a time may be given.
 WHEN = "The day, said as for weather_forecast: 'today', 'i morgen', 'fredag' or '20.11'. Today if not said."
+#: Which detail weather_detail is asked for.
+WHAT = (
+    "The one detail asked about: 'uv', 'humidity', 'dew point', 'fog' (also for visibility) or"
+    " 'wind' (with its gusts and direction)."
+)
+#: The hour a detail is asked for; with none it is now, or the whole of another day.
+DETAIL_FROM = FROM + " Leave it out for now, or for the whole of another day."
 #: What the voice hears when weather-mcp itself fails, so it never hears only that the tool failed.
 BROKE = "That went wrong inside weather-mcp. Try again, and if it fails again, check its log."
 #: The voice gives up on a call after about 15 seconds; every answer comes before then.
@@ -107,7 +114,7 @@ SAID_SIMULATED = "Simulated: "
 def build_server(
     weather: Weather, *, answer_within: float = ANSWER_WITHIN, simulated: bool = False
 ) -> MCPServer[Any]:
-    """The MCP server with the four weather tools; made-up, and saying so, if simulated."""
+    """The MCP server with the five weather tools; made-up, and saying so, if simulated."""
     hide_query_strings()
     server: MCPServer[Any] = MCPServer(
         name="weather-simulated" if simulated else "weather",
@@ -211,5 +218,36 @@ def build_server(
             place, from_time=from_time, to_time=to_time, day=day, lat=lat, lon=lon, accuracy_m=accuracy_m
         )
         return await _answer("weather_hours", asked)
+
+    @server.tool(
+        annotations=LOOKS,
+        description="One detail beyond the basics, as Yr's app shows it, said as its value and the"
+        " time it is for: the UV index on a clear sky, humidity, dew point, fog, or the wind with"
+        " its gusts and direction. Use it only when one of these is asked about; for the weather"
+        " itself use the other tools. With a span of time it gives a range, the peak or the"
+        " strongest hour. Send the phone's position as lat, lon and accuracy_m when you have it;"
+        " a named place comes first, and with neither it is home. Data from MET Norway and Kartverket.",
+    )
+    async def weather_detail(  # noqa: PLR0913, PLR0917 - each input as the voice sends it
+        what: Annotated[str, Field(description=WHAT)],
+        day: Annotated[str, Field(description=WHEN)] = "today",
+        from_time: Annotated[str | None, Field(description=DETAIL_FROM)] = None,
+        to_time: Annotated[str | None, Field(description=TO)] = None,
+        place: str | None = None,
+        lat: Lat = None,
+        lon: Lon = None,
+        accuracy_m: Accuracy = None,
+    ) -> dict[str, Any]:
+        asked = weather.detail(
+            what,
+            place,
+            day=day,
+            from_time=from_time,
+            to_time=to_time,
+            lat=lat,
+            lon=lon,
+            accuracy_m=accuracy_m,
+        )
+        return await _answer("weather_detail", asked)
 
     return server

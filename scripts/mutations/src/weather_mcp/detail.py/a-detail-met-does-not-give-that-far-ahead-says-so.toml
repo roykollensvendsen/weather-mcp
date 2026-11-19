@@ -1,0 +1,5 @@
+[[rule]]
+name = "a detail met does not give that far ahead says so"
+file = "src/weather_mcp/detail.py"
+find = '''^    return f\"MET gives no \{NAME\[kind\]\}'''
+replace = '''return "MET has no forecast for that time yet."'''

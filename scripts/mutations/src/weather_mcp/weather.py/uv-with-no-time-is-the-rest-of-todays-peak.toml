@@ -1,0 +1,5 @@
+[[rule]]
+name = "uv with no time is the rest of todays peak"
+file = "src/weather_mcp/weather.py"
+find = '''^    start = max\(at_hour\(date, 0\), hour\)$'''
+replace = '''start = at_hour(date, 0)'''

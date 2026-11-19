@@ -22,6 +22,7 @@ import httpx
 START = dt.datetime(2026, 11, 14, 12, 0, tzinfo=dt.UTC)
 LAST_MODIFIED = "Sat, 14 Nov 2026 11:30:00 GMT"
 FORECAST_PATH = "/weatherapi/locationforecast/2.0/compact"
+COMPLETE_PATH = "/weatherapi/locationforecast/2.0/complete"
 NOWCAST_PATH = "/weatherapi/nowcast/2.0/complete"
 PLACES_PATH = "/stedsnavn/v1/sted"
 
@@ -122,6 +123,38 @@ def met_like(at, start: dt.datetime = START) -> dict[str, object]:
     return body
 
 
+def detailed(at, start: dt.datetime = START, hours: int = 60, far: int = 0) -> dict[str, object]:
+    """A complete forecast, as MET's is (read 2026-11-19): an hour apart, then six hours apart.
+
+    `at(local)` gives the details MET adds to compact, by Oslo time: relative_humidity,
+    dew_point_temperature, fog_area_fraction, ultraviolet_index_clear_sky, wind_from_direction,
+    wind_speed and wind_speed_of_gust. After the `hours` hourly entries come `far` entries six
+    hours apart, which, as in MET's own answer, give no fog, UV or gust.
+    """
+    oslo = zoneinfo.ZoneInfo("Europe/Oslo")
+    times = [start + dt.timedelta(hours=n) for n in range(hours)]
+    times += [times[-1] + dt.timedelta(hours=6 * (n + 1)) for n in range(far)]
+    series = []
+    for n, time in enumerate(times):
+        details: dict[str, object] = {"air_temperature": 7.0, "wind_speed": 3.0, **at(time.astimezone(oslo))}
+        if n >= hours:
+            for name in ("fog_area_fraction", "ultraviolet_index_clear_sky", "wind_speed_of_gust"):
+                details.pop(name, None)
+        block = "next_1_hours" if n < hours else "next_6_hours"
+        series.append(
+            {
+                "time": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "data": {
+                    "instant": {"details": details},
+                    block: {"summary": {"symbol_code": "cloudy"}, "details": {"precipitation_amount": 0.0}},
+                },
+            }
+        )
+    body = forecast()
+    body["properties"]["timeseries"] = series  # type: ignore[index]
+    return body
+
+
 def radar(rates: list[float], start: dt.datetime = START, coverage: str = "ok") -> dict[str, object]:
     """A nowcast as MET's complete one is (docs read 2026-11-18), five minutes a step.
 
@@ -217,6 +250,8 @@ class FakeApi:
     nowcast_broken: int | None = None
     #: Seconds the nowcast alone takes, as when the radar service is slow.
     nowcast_delay: float = 0
+    #: MET's complete forecast, which only the details read; with none, the compact body.
+    complete: dict[str, object] | None = None
 
     def transport(self) -> httpx.MockTransport:
         return httpx.MockTransport(self._handle_async)
@@ -235,8 +270,9 @@ class FakeApi:
         self.requests.append(request)
         if request.url.path == PLACES_PATH:
             return self._places(request)
-        if request.url.path == FORECAST_PATH:
-            return self._forecast(request, self.body)
+        forecasts = {FORECAST_PATH: self.body, COMPLETE_PATH: self.complete or self.body}
+        if request.url.path in forecasts:
+            return self._forecast(request, forecasts[request.url.path])
         if request.url.path == NOWCAST_PATH:
             if self.nowcast_broken is not None:
                 return httpx.Response(self.nowcast_broken)

@@ -1,0 +1,5 @@
+[[rule]]
+name = "a time between six hour steps takes the step it falls in"
+file = "src/weather_mcp/detail.py"
+find = '''^    return \[before\[-1\]\[\"data\"\]'''
+replace = '''return []'''

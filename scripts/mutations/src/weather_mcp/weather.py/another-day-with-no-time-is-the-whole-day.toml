@@ -1,0 +1,5 @@
+[[rule]]
+name = "another day with no time is the whole day"
+file = "src/weather_mcp/weather.py"
+find = '''^    return start, at_hour\(date \+ dt\.timedelta\(days=1\), 0\), label'''
+replace = '''return start, _later(start, 1), label(date, now.date())'''
