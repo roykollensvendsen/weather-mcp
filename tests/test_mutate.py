@@ -57,7 +57,7 @@ def test_two_mutations_never_share_a_bytecode_cache(monkeypatch, tmp_path):
 
 
 def test_a_real_mutation_run_is_never_capped(monkeypatch, tmp_path):
-    """Roy's rule: a run takes as long as it takes. Only a test's scratch run passes a bound."""
+    """The owner's rule: a run takes as long as it takes. Only a test's scratch run passes a bound."""
     runner = _runner(monkeypatch, tmp_path)
     seen = _suite_says(monkeypatch, runner, "1 passed\n")
     runner.run_suite()
