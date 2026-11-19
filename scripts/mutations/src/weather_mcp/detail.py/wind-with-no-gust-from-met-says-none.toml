@@ -1,0 +1,5 @@
+[[rule]]
+name = "wind with no gust from met says none"
+file = "src/weather_mcp/detail.py"
+find = '''^    return said if gust is None else'''
+replace = '''return f"{said}, gusts to {gust}"'''

@@ -1,0 +1,5 @@
+[[rule]]
+name = "a detail with no time is for now"
+file = "src/weather_mcp/weather.py"
+find = '''^    if date == now\.date\(\) and kind != \"uv\":$'''
+replace = '''if False:'''

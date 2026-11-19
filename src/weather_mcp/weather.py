@@ -19,6 +19,7 @@ from weather_mcp.cache import RefusedError, SlowedDownError, UpstreamError
 from weather_mcp.clock import at_hour, which_hour
 from weather_mcp.config import Place, config_path
 from weather_mcp.days import label, which_day
+from weather_mcp.detail import COMPLETE, WHICH_DETAIL, detail_said, not_given, which_detail
 from weather_mcp.nowcast import NOWCAST, called, radar_sentence
 
 if TYPE_CHECKING:
@@ -573,6 +574,37 @@ def _hours_said(
     return opening, _hours_sentence(hours) + _block_note(hours)
 
 
+def _detail_asked(
+    kind: str, day: str, from_time: str | None, to_time: str | None, now: dt.datetime
+) -> tuple[dt.datetime, dt.datetime, str] | str:
+    """The stretch a detail is asked for and how it is said, or the sentence saying why there is none."""
+    if from_time is None:
+        return _detail_day(kind, day, now)
+    asked = _asked(day, from_time, to_time, now)
+    if isinstance(asked, str):
+        return asked
+    start, end = asked
+    begun = max(start, now.replace(minute=0, second=0, microsecond=0))
+    return begun, end, f"{label(start.date(), now.date())} {_when(start, begun, end)}"
+
+
+def _detail_day(kind: str, day: str, now: dt.datetime) -> tuple[dt.datetime, dt.datetime, str] | str:
+    """A detail asked for with no time: now for today, or the whole of another day."""
+    date = which_day(day, now.date())
+    if date is None:
+        return WHICH
+    if date < now.date():
+        return PASSED
+    hour = now.replace(minute=0, second=0, microsecond=0)
+    # RULE: a detail with no time is for now
+    if date == now.date() and kind != "uv":
+        return hour, _later(hour, 1), "Now"
+    # RULE: another day with no time is the whole day
+    # RULE: uv with no time is the rest of todays peak
+    start = max(at_hour(date, 0), hour)
+    return start, at_hour(date + dt.timedelta(days=1), 0), label(date, now.date())
+
+
 #: The longest place name said back, in letters. Names longer than this are cut, not refused.
 ECHO = 40
 
@@ -703,14 +735,48 @@ class Weather:
         say = f"{opening} {_spoken(where)}: {sentence}" + _rough(where, accuracy_m)
         return {"success": True, "say": say, "place": where.name}
 
+    async def detail(  # noqa: PLR0913 - the detail, the times, the day and the place, as the voice sends them
+        self,
+        what: str,
+        place: str | None = None,
+        *,
+        day: str = "today",
+        from_time: str | None = None,
+        to_time: str | None = None,
+        lat: float | None = None,
+        lon: float | None = None,
+        accuracy_m: float | None = None,
+    ) -> dict[str, Any]:
+        """One detail of the forecast, such as the UV index or the wind, for a time or a stretch."""
+        now = self._cache.now().astimezone(OSLO)
+        kind = which_detail(what)
+        if kind is None:
+            # RULE: an unknown detail lists the words
+            return {"success": False, "say": WHICH_DETAIL}
+        asked = _detail_asked(kind, day, from_time, to_time, now)
+        if isinstance(asked, str):
+            return {"success": False, "say": asked}
+        # RULE: the details come from the complete forecast
+        found = await self._look_up(place, lat, lon, forecast=COMPLETE)
+        if isinstance(found, dict):
+            return found
+        where, answer = found
+        series = answer.data["properties"]["timeseries"]
+        start, end, opening = asked
+        said = detail_said(kind, series, start, end)
+        if not said:
+            return {"success": False, "say": _reach(series, now.date()) if said is None else not_given(kind)}
+        say = f"{opening} {_spoken(where)}: {said}." + _rough(where, accuracy_m)
+        return {"success": True, "say": say, "place": where.name}
+
     async def _look_up(
-        self, place: str | None, lat: float | None, lon: float | None
+        self, place: str | None, lat: float | None, lon: float | None, *, forecast: str = FORECAST
     ) -> tuple[Place, Answer] | dict[str, Any]:
         """The place asked about and MET's answer for it, or the refusal to say instead."""
         where = await self._resolve(place, lat, lon)
         if isinstance(where, str):
             return {"success": False, "say": where}
-        answer = await self._fetch(where)
+        answer = await self._fetch(where, forecast)
         if isinstance(answer, str):
             return {"success": False, "say": answer}
         return where, answer
@@ -722,11 +788,11 @@ class Weather:
         here = _position(lat, lon)
         return here if here is not None else await self._where(None)
 
-    async def _fetch(self, where: Place) -> Answer | str:
-        """MET's forecast for the point, or the sentence saying why there is none."""
+    async def _fetch(self, where: Place, forecast: str = FORECAST) -> Answer | str:
+        """MET's forecast for the point, compact unless told, or the sentence saying why there is none."""
         try:
             # A position is the phone's own, so it is kept in memory only, never in the file.
-            return await self._cache.get_json(FORECAST, point(where), on_disk=not isinstance(where, Here))
+            return await self._cache.get_json(forecast, point(where), on_disk=not isinstance(where, Here))
         except SlowedDownError:
             return HELD_OFF
         except RefusedError:

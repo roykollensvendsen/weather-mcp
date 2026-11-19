@@ -1,0 +1,5 @@
+[[rule]]
+name = "wind over hours is its strongest hour"
+file = "src/weather_mcp/detail.py"
+find = '''^    strongest = max\(steps, key='''
+replace = '''strongest = steps[0]'''

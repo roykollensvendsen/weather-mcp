@@ -42,7 +42,7 @@ def _sky(hour: int) -> str:
 
 
 def _forecast(now: dt.datetime) -> dict[str, Any]:
-    """Made-up weather in MET's compact shape: sixty hours, then six-hour blocks for nine days more.
+    """Made-up weather in MET's shape: sixty hours, then six-hour blocks for nine days more.
 
     As in MET's own answer, the hours carry next_1_hours, the blocks at 00, 06, 12 and 18 UTC
     carry next_6_hours only, and the last entry carries neither.
@@ -55,19 +55,31 @@ def _forecast(now: dt.datetime) -> dict[str, Any]:
     return {"type": "Feature", "properties": {"meta": {}, "timeseries": series}}
 
 
+def _hourly(local_hour: int, wind: float) -> dict[str, float]:
+    """The details MET's complete answer gives only for its hours: fog, UV and gusts."""
+    return {
+        "fog_area_fraction": 30.0 if local_hour < 8 else 0.0,  # noqa: PLR2004 - misty mornings
+        "ultraviolet_index_clear_sky": 1.0 if 10 <= local_hour < 15 else 0.0,  # noqa: PLR2004 - midday sun
+        "wind_speed_of_gust": wind * 2,
+    }
+
+
 def _entry(time: dt.datetime, *, hourly: bool, last: bool) -> dict[str, Any]:
     """One entry of the made-up forecast, its block an hour or six hours long, or none at the end."""
     local_hour = (time.hour + 1) % 24
     symbol = _sky(local_hour)
     hours = 1 if hourly else 6
-    data: dict[str, Any] = {
-        "instant": {
-            "details": {
-                "air_temperature": round(4 + 3 * math.sin((local_hour - 8) / 24 * 2 * math.pi), 1),
-                "wind_speed": 3.0 + local_hour % 4,
-            }
-        }
+    temperature = round(4 + 3 * math.sin((local_hour - 8) / 24 * 2 * math.pi), 1)
+    details: dict[str, float] = {
+        "air_temperature": temperature,
+        "wind_speed": 3.0 + local_hour % 4,
+        "wind_from_direction": 200.0,
+        "relative_humidity": 85.0 - 2 * local_hour % 20,
+        "dew_point_temperature": round(temperature - 3, 1),
     }
+    if hourly:
+        details |= _hourly(local_hour, details["wind_speed"])
+    data: dict[str, Any] = {"instant": {"details": details}}
     if not last:
         data[f"next_{hours}_hours"] = {
             "summary": {"symbol_code": symbol},
@@ -88,7 +100,8 @@ def _place(name: str, place: Place) -> dict[str, Any]:
 
 def _answer(request: httpx.Request) -> httpx.Response:
     """MET's forecast or Kartverket's places, made up, for any request; nothing leaves."""
-    if request.url.path.endswith("/locationforecast/2.0/compact"):
+    # The made-up forecast carries the complete answer's details, so it serves both.
+    if request.url.path.endswith(("/locationforecast/2.0/compact", "/locationforecast/2.0/complete")):
         now = dt.datetime.now(dt.UTC)
         expires = now + dt.timedelta(minutes=30)
         headers = {"Expires": expires.strftime("%a, %d %b %Y %H:%M:%S GMT")}

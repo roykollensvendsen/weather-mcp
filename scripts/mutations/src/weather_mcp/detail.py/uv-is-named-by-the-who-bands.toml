@@ -1,0 +1,5 @@
+[[rule]]
+name = "uv is named by the who bands"
+file = "src/weather_mcp/detail.py"
+find = '''^    band = next\(name for lowest, name in UV_BANDS'''
+replace = '''band = "low"'''

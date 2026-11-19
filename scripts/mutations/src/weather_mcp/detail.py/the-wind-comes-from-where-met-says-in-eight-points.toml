@@ -1,0 +1,5 @@
+[[rule]]
+name = "the wind comes from where met says in eight points"
+file = "src/weather_mcp/detail.py"
+find = '''^    return f\"the \{POINTS\['''
+replace = '''return f"the {POINTS[int(degrees / 45) % len(POINTS)]}"'''

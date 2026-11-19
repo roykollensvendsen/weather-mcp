@@ -1,0 +1,5 @@
+[[rule]]
+name = "a range of degrees says minus on each side"
+file = "src/weather_mcp/detail.py"
+find = '''^    return f\"dew point \{_degrees\(low\)\} to'''
+replace = '''return f"dew point {low} to {high} degrees"'''

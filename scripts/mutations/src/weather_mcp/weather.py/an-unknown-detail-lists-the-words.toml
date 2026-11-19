@@ -1,0 +1,5 @@
+[[rule]]
+name = "an unknown detail lists the words"
+file = "src/weather_mcp/weather.py"
+find = '''^            return \{\"success\": False, \"say\": WHICH_DETAIL\}$'''
+replace = '''return {"success": False, "say": WHICH}'''

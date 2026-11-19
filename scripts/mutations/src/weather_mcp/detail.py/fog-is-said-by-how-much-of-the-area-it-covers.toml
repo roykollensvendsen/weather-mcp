@@ -1,0 +1,5 @@
+[[rule]]
+name = "fog is said by how much of the area it covers"
+file = "src/weather_mcp/detail.py"
+find = '''^    if most > FOG_LIKELY:$'''
+replace = '''if most >= FOG_LIKELY:'''

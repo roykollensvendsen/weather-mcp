@@ -1,0 +1,5 @@
+[[rule]]
+name = "a detail is known by its own word and the words also taken for it"
+file = "src/weather_mcp/detail.py"
+find = '''^    word = \" \"\.join\(what\.lower\(\)'''
+replace = '''word = what'''

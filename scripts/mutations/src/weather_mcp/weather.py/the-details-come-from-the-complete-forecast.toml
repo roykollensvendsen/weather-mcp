@@ -1,0 +1,5 @@
+[[rule]]
+name = "the details come from the complete forecast"
+file = "src/weather_mcp/weather.py"
+find = '''^        found = await self\._look_up\(place, lat, lon, forecast=COMPLETE\)$'''
+replace = '''found = await self._look_up(place, lat, lon)'''
