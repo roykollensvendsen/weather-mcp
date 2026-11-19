@@ -27,6 +27,9 @@ STEP = 5
 SETTLED = 2
 #: Rain sooner than this many minutes away is said by how soon, then the time.
 HOUR = 60
+#: The usual bands, in millimetres an hour: from these, rain is moderate, then heavy.
+MODERATE = 2.5
+HEAVY = 10.0
 
 log = logging.getLogger(__name__)
 
@@ -74,36 +77,72 @@ def _reach(minutes: int) -> str:
     return "the next two hours" if minutes > NEARLY else "about the next two hours"
 
 
-def _changes(change: dt.datetime, now: dt.datetime, falls: str, *, wet: bool) -> str:
+def _how(rates: list[float], falls: str) -> str:
+    """What falls with how hard, such as "Light rain", by the heaviest step of the spell."""
+    peak = max(rates)
+    # RULE: the rain is called light moderate or heavy by its heaviest step
+    word = "Heavy" if peak >= HEAVY else "Moderate" if peak >= MODERATE else "Light"
+    return f"{word} {falls.lower()}"
+
+
+def _much(rates: list[float], falls: str) -> str:
+    """How much falls over the spell, such as ", about 3 mm", or "" for snow and sleet."""
+    # RULE: snow and sleet are never said in millimetres
+    if falls != "Rain":
+        return ""
+    total = sum(rates) * STEP / HOUR
+    # RULE: rain falling now says how much
+    return ", less than 1 mm" if total < 1 else f", about {int(total + 0.5)} mm"
+
+
+def _changes(change: dt.datetime, now: dt.datetime, how: str, *, much: str | None) -> str:
+    """The change as said: when falling rain stops (with `much`), or when rain comes."""
     at = f"{change.astimezone(OSLO):%H:%M}"
     # RULE: rain falling now says when it stops
-    if wet:
-        return f" {falls} until about {at}."
+    if much is not None:
+        return f" {how} until about {at}{much}."
     soon = (change - now).total_seconds() / 60
+    # RULE: rain under five minutes away is said as any minute now
+    if soon < STEP:
+        return f" {how} any minute now."
     # RULE: how soon is rounded to the nearest five minutes
-    # RULE: how soon is never said as less than five minutes
-    rounded = max(int((soon + STEP / 2) // STEP) * STEP, STEP)
+    rounded = int((soon + STEP / 2) // STEP) * STEP
     # RULE: rain within the hour says how soon first
     if soon < HOUR:
-        return f" {falls} in about {rounded} minutes, around {at}."
+        return f" {how} in about {rounded} minutes, around {at}."
     # RULE: rain on the radar says when it starts
-    return f" {falls} from about {at}."
+    return f" {how} from about {at}."
+
+
+def _turn(wet: list[bool], start: int) -> int | None:
+    """The first step from `start` where the rain changes for good, or None."""
+    # RULE: a single step of speckle is not a change
+    last = len(wet) - SETTLED + 1
+    return next((n for n in range(start, last) if wet[start] not in wet[n : n + SETTLED]), None)
 
 
 def radar_sentence(data: dict[str, Any], now: dt.datetime, falls: str, *, fresh: bool = True) -> str:
-    """A sentence led by a space, such as " Rain from about 13:25.", or "" with no radar."""
+    """A sentence led by a space, such as " Light rain from about 14:00.", or "" with no radar."""
     ahead = _ahead(data, now, fresh=fresh)
     minutes = int((ahead[-1][0] - now).total_seconds() // 60) if ahead else 0
     # RULE: a radar with no steps ahead says nothing
     if minutes < STEP:
         return ""
+    return _said(ahead, now, minutes, falls)
+
+
+def _said(ahead: list[tuple[dt.datetime, float]], now: dt.datetime, minutes: int, falls: str) -> str:
+    """The sentence for steps ahead that reach `minutes`: no rain, rain all through, or a change."""
     # RULE: a trace below a tenth of a millimetre is dry
     wet = [rate >= TRACE for _, rate in ahead]
-    # RULE: a single step of speckle is not a change
-    last = len(wet) - SETTLED + 1
-    change = next((ahead[n][0] for n in range(last) if wet[0] not in wet[n : n + SETTLED]), None)
-    if change is None:
-        # RULE: rain all through says so
-        # RULE: no rain on the radar says dry
-        return f" {falls if wet[0] else 'Dry'} for {_reach(minutes)}."
-    return _changes(change, now, falls, wet=wet[0])
+    rates = [rate for _, rate in ahead]
+    turn = _turn(wet, 0)
+    # RULE: no rain on the radar says no rain
+    if turn is None and not wet[0]:
+        return f" No {falls.lower()} for {_reach(minutes)}."
+    # RULE: rain all through says so
+    if turn is None:
+        return f" {_how(rates, falls)} for {_reach(minutes)}{_much(rates, falls)}."
+    spell = rates[:turn] if wet[0] else rates[turn : _turn(wet, turn)]
+    much = _much(spell, falls) if wet[0] else None
+    return _changes(ahead[turn][0], now, _how(spell, falls), much=much)

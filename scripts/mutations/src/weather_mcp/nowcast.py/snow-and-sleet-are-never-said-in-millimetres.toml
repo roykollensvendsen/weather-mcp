@@ -1,0 +1,5 @@
+[[rule]]
+name = "snow and sleet are never said in millimetres"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    if falls != "Rain":$'''
+replace = '''if False:'''

@@ -1,5 +1,5 @@
 [[rule]]
 name = "rain falling now says when it stops"
 file = "src/weather_mcp/nowcast.py"
-find = '''^    if wet:$'''
+find = '''^    if much is not None:$'''
 replace = '''if False:'''

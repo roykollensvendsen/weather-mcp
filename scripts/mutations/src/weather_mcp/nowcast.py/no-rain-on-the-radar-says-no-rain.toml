@@ -1,0 +1,5 @@
+[[rule]]
+name = "no rain on the radar says no rain"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    if turn is None and not wet\[0\]:$'''
+replace = '''if False:'''

@@ -1,0 +1,5 @@
+[[rule]]
+name = "rain under five minutes away is said as any minute now"
+file = "src/weather_mcp/nowcast.py"
+find = '''^    if soon < STEP:$'''
+replace = '''if False:'''
