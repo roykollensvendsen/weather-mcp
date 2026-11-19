@@ -28,8 +28,9 @@ SETTLED = 2
 #: Rain sooner than this many minutes away is said by how soon, then the time.
 HOUR = 60
 #: The usual bands, in millimetres an hour: from these, rain is moderate, then heavy.
-MODERATE = 2.5
-HEAVY = 10.0
+RAIN_BANDS = (2.5, 10.0)
+#: Snow and sleet by their water: a millimetre an hour is about a centimetre of snow.
+SNOW_BANDS = (1.0, 2.5)
 
 log = logging.getLogger(__name__)
 
@@ -80,8 +81,10 @@ def _reach(minutes: int) -> str:
 def _how(rates: list[float], falls: str) -> str:
     """What falls with how hard, such as "Light rain", by the heaviest step of the spell."""
     peak = max(rates)
+    # RULE: snow and sleet are banded by their water
+    moderate, heavy = RAIN_BANDS if falls == "Rain" else SNOW_BANDS
     # RULE: the rain is called light moderate or heavy by its heaviest step
-    word = "Heavy" if peak >= HEAVY else "Moderate" if peak >= MODERATE else "Light"
+    word = "Heavy" if peak >= heavy else "Moderate" if peak >= moderate else "Light"
     return f"{word} {falls.lower()}"
 
 
