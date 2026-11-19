@@ -203,7 +203,7 @@ def run_suite(timeout: float | None = None) -> tuple[int, list[str]]:
             cwd=ROOT,
             check=False,
             env=env,
-            # A real run is never cut short, however long it takes (Roy's rule).
+            # A real run is never cut short, however long it takes (the owner's rule).
             # RULE: a real mutation run is never capped
             timeout=timeout,
         )
