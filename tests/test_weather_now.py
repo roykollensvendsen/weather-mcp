@@ -8,6 +8,7 @@ import contextlib
 import importlib
 import logging
 import pkgutil
+import sys
 
 import httpcore
 import httpx
@@ -294,14 +295,39 @@ def test_building_many_servers_keeps_one_filter():
     assert len(logging.getLogger("httpcore.http11").filters) == 1
 
 
+def _import_each(names):
+    """Import each module named, going on past one that fails to load for any reason."""
+    for name in names:
+        with contextlib.suppress(Exception):
+            importlib.import_module(name)
+
+
+def _parts(package):
+    """The names of every module in a package; the walk imports each subpackage to look inside."""
+    walk = pkgutil.walk_packages(package.__path__, f"{package.__name__}.", onerror=lambda _name: None)
+    return [module.name for module in walk]
+
+
+def test_a_part_that_fails_to_load_does_not_stop_the_logger_walk(tmp_path, monkeypatch):
+    """An optional part of httpx or httpcore can raise more than ImportError when it is imported."""
+    walked = tmp_path / "walkedpkg"
+    (walked / "broken").mkdir(parents=True)
+    (walked / "__init__.py").write_text("")
+    (walked / "broken" / "__init__.py").write_text("raise RuntimeError\n")
+    (walked / "zlater.py").write_text("")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    try:
+        names = _parts(importlib.import_module("walkedpkg"))
+        _import_each(names)
+        assert "walkedpkg.zlater" in sys.modules
+    finally:
+        for name in ("walkedpkg", "walkedpkg.broken", "walkedpkg.zlater"):
+            sys.modules.pop(name, None)
+
+
 def test_every_logger_httpx_and_httpcore_have_carries_the_filter():
     """A logger httpx or httpcore adds in a later release would write addresses unseen."""
-    for module in (
-        *pkgutil.walk_packages(httpx.__path__, "httpx."),
-        *pkgutil.walk_packages(httpcore.__path__, "httpcore."),
-    ):
-        with contextlib.suppress(ImportError):
-            importlib.import_module(module.name)
+    _import_each([*_parts(httpx), *_parts(httpcore)])
     Voice().close()
     theirs = [
         name
